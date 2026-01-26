@@ -4,9 +4,9 @@ Provides custom exception hierarchy with error codes, retry hints,
 and structured logging integration.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
-from typing import Any
+from typing import Any, cast
 
 from src.shared.config.logging import get_logger
 
@@ -81,7 +81,7 @@ class APIError(Exception):
         self.retryable = retryable
         self.endpoint = endpoint
         self.details = details or {}
-        self.timestamp = datetime.utcnow()
+        self.timestamp = datetime.now(timezone.utc)
 
         # Log the error
         logger.error(
@@ -445,4 +445,6 @@ def get_retry_delay(error: Exception, attempt: int = 0) -> float:
         return float(error.retry_after)
 
     # Exponential backoff: 1s, 2s, 4s, 8s, ...
-    return min(2**attempt, 60)  # Cap at 60 seconds
+    base_delay = 1.0
+    max_delay = 60.0
+    return cast(float, min(base_delay * (2**attempt), max_delay))
