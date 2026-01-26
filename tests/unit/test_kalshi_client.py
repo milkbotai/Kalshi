@@ -209,7 +209,38 @@ class TestKalshiClient:
         # Verify DELETE request
         call_args = mock_request.call_args
         assert call_args[1]["method"] == "DELETE"
-        assert "/portfolio/orders/order_123" in call_args[0][0]
+        assert "/portfolio/orders/order_123" in call_args[1]["url"]
+
+    @patch("requests.Session.request")
+    @patch.object(KalshiClient, "_ensure_authenticated")
+    def test_get_orders_with_filters(
+        self, mock_auth: MagicMock, mock_request: MagicMock
+    ) -> None:
+        """Test fetching orders with ticker and status filters."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "orders": [
+                {
+                    "order_id": "order_123",
+                    "ticker": "HIGHNYC-25JAN26",
+                    "status": "resting",
+                }
+            ]
+        }
+        mock_request.return_value = mock_response
+
+        client = KalshiClient(api_key="test", api_secret="test")
+        orders = client.get_orders(ticker="HIGHNYC-25JAN26", status="resting")
+
+        assert len(orders) == 1
+        assert orders[0]["order_id"] == "order_123"
+        assert orders[0]["status"] == "resting"
+
+        # Verify request parameters
+        call_args = mock_request.call_args
+        assert call_args[1]["params"]["ticker"] == "HIGHNYC-25JAN26"
+        assert call_args[1]["params"]["status"] == "resting"
 
     @patch("requests.Session.request")
     @patch.object(KalshiClient, "_ensure_authenticated")
@@ -234,6 +265,31 @@ class TestKalshiClient:
         assert len(positions) == 1
         assert positions[0]["ticker"] == "HIGHNYC-25JAN26"
         assert positions[0]["position"] == 10
+
+    @patch("requests.Session.request")
+    @patch.object(KalshiClient, "_ensure_authenticated")
+    def test_get_positions_with_ticker_filter(
+        self, mock_auth: MagicMock, mock_request: MagicMock
+    ) -> None:
+        """Test fetching positions filtered by ticker."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "positions": [
+                {
+                    "ticker": "HIGHNYC-25JAN26",
+                    "position": 10,
+                    "total_cost": 450,
+                }
+            ]
+        }
+        mock_request.return_value = mock_response
+
+        client = KalshiClient(api_key="test", api_secret="test")
+        positions = client.get_positions()
+
+        assert len(positions) == 1
+        assert positions[0]["ticker"] == "HIGHNYC-25JAN26"
 
     @patch("requests.Session.request")
     @patch.object(KalshiClient, "_ensure_authenticated")
@@ -337,6 +393,22 @@ class TestKalshiClient:
         assert markets == []
         assert mock_request.call_count == 2
         assert mock_post.call_count == 2  # Initial auth + re-auth on 401
+
+    @patch("requests.Session.request")
+    @patch.object(KalshiClient, "_ensure_authenticated")
+    def test_get_market_with_invalid_ticker(
+        self, mock_auth: MagicMock, mock_request: MagicMock
+    ) -> None:
+        """Test get_market with invalid ticker returns empty dict."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"market": {}}
+        mock_request.return_value = mock_response
+
+        client = KalshiClient(api_key="test", api_secret="test")
+        market = client.get_market("INVALID-TICKER")
+
+        assert market == {}
 
     @patch("requests.Session.request")
     @patch.object(KalshiClient, "_ensure_authenticated")
