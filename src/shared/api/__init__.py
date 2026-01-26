@@ -1,1 +1,5 @@
-"""API clients."""
+"""API clients for external services."""
+
+from src.shared.api.nws import NWSClient
+
+__all__ = ["NWSClient"]
