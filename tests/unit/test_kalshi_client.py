@@ -278,9 +278,7 @@ class TestKalshiClient:
 
     @patch("requests.Session.request")
     @patch.object(KalshiClient, "_ensure_authenticated")
-    def test_retry_on_server_error(
-        self, mock_auth: MagicMock, mock_request: MagicMock
-    ) -> None:
+    def test_retry_on_server_error(self, mock_auth: MagicMock, mock_request: MagicMock) -> None:
         """Test automatic retry on server errors."""
         # First two calls fail, third succeeds
         mock_response_fail = MagicMock()
@@ -309,9 +307,7 @@ class TestKalshiClient:
 
     @patch("requests.Session.request")
     @patch("requests.Session.post")
-    def test_reauthenticate_on_401(
-        self, mock_post: MagicMock, mock_request: MagicMock
-    ) -> None:
+    def test_reauthenticate_on_401(self, mock_post: MagicMock, mock_request: MagicMock) -> None:
         """Test re-authentication on 401 error."""
         # First request fails with 401, second succeeds after re-auth
         mock_response_401 = MagicMock()
