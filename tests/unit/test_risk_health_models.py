@@ -21,7 +21,7 @@ class TestRiskEventModel:
 
         assert event.event_type == "DAILY_LIMIT_HIT"
         assert event.severity == "CRITICAL"
-        assert event.resolved is False
+        assert event.resolved is None  # Will be False after INSERT to database
 
     def test_risk_event_repr(self) -> None:
         """Test RiskEvent string representation."""
