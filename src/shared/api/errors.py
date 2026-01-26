@@ -158,7 +158,11 @@ class TimeoutError(NetworkError):
             details["timeout_seconds"] = timeout_seconds
 
         super().__init__(
-            message=f"Request timed out after {timeout_seconds}s" if timeout_seconds else "Request timed out",
+            message=(
+                f"Request timed out after {timeout_seconds}s"
+                if timeout_seconds
+                else "Request timed out"
+            ),
             error_code=ErrorCode.NETWORK_TIMEOUT,
             endpoint=endpoint,
             details=details,
@@ -206,7 +210,9 @@ class DNSError(NetworkError):
             details["hostname"] = hostname
 
         super().__init__(
-            message=f"DNS resolution failed for {hostname}" if hostname else "DNS resolution failed",
+            message=(
+                f"DNS resolution failed for {hostname}" if hostname else "DNS resolution failed"
+            ),
             error_code=ErrorCode.NETWORK_DNS,
             endpoint=None,
             details=details,
