@@ -15,7 +15,7 @@ from src.shared.models.base import Base, TimestampMixin
 
 class RiskEvent(Base, TimestampMixin):
     """Risk event model.
-    
+
     Tracks risk violations, circuit breaker triggers, and other risk-related events.
     """
 
@@ -70,4 +70,6 @@ class RiskEvent(Base, TimestampMixin):
 
     def __repr__(self) -> str:
         """String representation of RiskEvent."""
-        return f"<RiskEvent(type={self.event_type}, severity={self.severity}, time={self.event_time})>"
+        return (
+            f"<RiskEvent(type={self.event_type}, severity={self.severity}, time={self.event_time})>"
+        )
