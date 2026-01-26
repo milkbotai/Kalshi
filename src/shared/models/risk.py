@@ -6,7 +6,7 @@ Records risk events like limit breaches and trading pauses.
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Boolean, DateTime, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, Integer, String, Text, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -59,7 +59,7 @@ class RiskEvent(Base, TimestampMixin):
 
     # Resolution
     resolved: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, server_default="false", doc="Whether event has been resolved"
+        Boolean, default=False, nullable=False, server_default=text("false"), doc="Whether event has been resolved"
     )
 
     resolved_at: Mapped[datetime | None] = mapped_column(
