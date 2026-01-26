@@ -109,7 +109,7 @@ class TestStrategy:
     def test_strategy_evaluate_not_implemented(self) -> None:
         """Test Strategy.evaluate() raises NotImplementedError."""
         from src.shared.api.response_models import Market
-        
+
         strategy = Strategy(name="test")
         market = Market(
             ticker="TEST-01",
