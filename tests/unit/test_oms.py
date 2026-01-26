@@ -199,9 +199,7 @@ class TestOrderManagementSystem:
 
         assert len(orders) == 2
 
-    def test_get_orders_by_status(
-        self, oms: OrderManagementSystem, sample_signal: Signal
-    ) -> None:
+    def test_get_orders_by_status(self, oms: OrderManagementSystem, sample_signal: Signal) -> None:
         """Test filtering orders by status."""
         # Create orders with different statuses
         order1 = oms.submit_order(sample_signal, "NYC", 123, "2026-01-26", 100, 45.0)
