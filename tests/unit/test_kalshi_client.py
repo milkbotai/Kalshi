@@ -469,6 +469,41 @@ class TestKalshiClient:
             client.get_balance()
 
     @patch("requests.Session.request")
+    @patch.object(KalshiClient, "_ensure_authenticated")
+    def test_get_fills_with_timestamps(
+        self, mock_auth: MagicMock, mock_request: MagicMock
+    ) -> None:
+        """Test fetching fills with min and max timestamp filters."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "fills": [
+                {
+                    "order_id": "order_123",
+                    "ticker": "HIGHNYC-25JAN26",
+                    "count": 10,
+                    "price": 45,
+                    "created_time": "2026-01-25T12:00:00Z",
+                }
+            ]
+        }
+        mock_request.return_value = mock_response
+
+        client = KalshiClient(api_key="test", api_secret="test")
+        fills = client.get_fills(
+            ticker="HIGHNYC-25JAN26",
+            min_ts=1706184000000,
+            max_ts=1706270400000,
+        )
+
+        assert len(fills) == 1
+        
+        # Verify timestamp parameters were passed
+        call_args = mock_request.call_args
+        assert call_args[1]["params"]["min_ts"] == 1706184000000
+        assert call_args[1]["params"]["max_ts"] == 1706270400000
+
+    @patch("requests.Session.request")
     def test_request_timeout(self, mock_request: MagicMock) -> None:
         """Test request timeout handling."""
         mock_request.side_effect = requests.Timeout("Request timed out")
