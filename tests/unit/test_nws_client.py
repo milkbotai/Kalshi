@@ -187,7 +187,7 @@ class TestNWSClient:
         # First two calls fail with 503, third succeeds
         mock_response_fail = MagicMock()
         mock_response_fail.status_code = 503
-        
+
         # Create HTTPError with response attached
         http_error = requests.HTTPError()
         http_error.response = mock_response_fail
@@ -209,7 +209,7 @@ class TestNWSClient:
         # Should succeed after retries
         assert "properties" in result
         assert mock_get.call_count == 3
-        
+
         # Verify exponential backoff was used (1s, 2s)
         assert mock_sleep.call_count == 2
         assert mock_sleep.call_args_list[0][0][0] == 1  # First retry: 1 second
