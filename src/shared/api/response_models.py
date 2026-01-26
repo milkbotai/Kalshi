@@ -9,7 +9,6 @@ from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
-
 # ============================================================================
 # NWS Response Models
 # ============================================================================
@@ -17,7 +16,7 @@ from pydantic import BaseModel, Field, field_validator
 
 class ForecastPeriod(BaseModel):
     """NWS forecast period model.
-    
+
     Represents a single forecast period (e.g., "Tonight", "Wednesday").
     """
 
@@ -45,7 +44,7 @@ class ForecastPeriod(BaseModel):
 
 class Forecast(BaseModel):
     """NWS forecast response model.
-    
+
     Contains multiple forecast periods and metadata.
     """
 
@@ -64,7 +63,7 @@ class Forecast(BaseModel):
 
 class Observation(BaseModel):
     """NWS observation model.
-    
+
     Represents current weather conditions from a station.
     """
 
@@ -86,7 +85,7 @@ class Observation(BaseModel):
     @classmethod
     def extract_value(cls, v: Any) -> float | None:
         """Extract value from NWS value object.
-        
+
         NWS returns values as {"value": 20.5, "unitCode": "wmoUnit:degC"}.
         """
         if v is None:
@@ -108,7 +107,7 @@ class Observation(BaseModel):
 
 class Market(BaseModel):
     """Kalshi market model.
-    
+
     Represents a prediction market on Kalshi.
     """
 
@@ -133,7 +132,7 @@ class Market(BaseModel):
     @property
     def spread_cents(self) -> int | None:
         """Calculate bid-ask spread in cents.
-        
+
         Returns:
             Spread in cents, or None if pricing unavailable
         """
@@ -144,7 +143,7 @@ class Market(BaseModel):
     @property
     def mid_price(self) -> float | None:
         """Calculate mid price.
-        
+
         Returns:
             Mid price in cents, or None if pricing unavailable
         """
@@ -160,7 +159,7 @@ class Market(BaseModel):
 
 class OrderbookLevel(BaseModel):
     """Orderbook price level.
-    
+
     Represents a single price level in the orderbook.
     """
 
@@ -175,7 +174,7 @@ class OrderbookLevel(BaseModel):
 
 class Orderbook(BaseModel):
     """Kalshi orderbook model.
-    
+
     Contains bid and ask levels for yes and no sides.
     """
 
@@ -185,7 +184,7 @@ class Orderbook(BaseModel):
     @property
     def best_yes_bid(self) -> int | None:
         """Get best yes bid price.
-        
+
         Returns:
             Best bid price in cents, or None if no bids
         """
@@ -196,7 +195,7 @@ class Orderbook(BaseModel):
     @property
     def best_yes_ask(self) -> int | None:
         """Get best yes ask price.
-        
+
         Returns:
             Best ask price in cents, or None if no asks
         """
@@ -212,7 +211,7 @@ class Orderbook(BaseModel):
 
 class Order(BaseModel):
     """Kalshi order model.
-    
+
     Represents a trading order on Kalshi.
     """
 
@@ -233,7 +232,7 @@ class Order(BaseModel):
     @property
     def is_filled(self) -> bool:
         """Check if order is fully filled.
-        
+
         Returns:
             True if order is completely filled
         """
@@ -249,7 +248,7 @@ class Order(BaseModel):
 
 class Position(BaseModel):
     """Kalshi position model.
-    
+
     Represents a current position in a market.
     """
 
@@ -262,7 +261,7 @@ class Position(BaseModel):
     @property
     def average_price(self) -> float | None:
         """Calculate average entry price.
-        
+
         Returns:
             Average price in cents, or None if no position
         """
@@ -278,7 +277,7 @@ class Position(BaseModel):
 
 class Fill(BaseModel):
     """Kalshi fill model.
-    
+
     Represents a trade execution (fill).
     """
 
@@ -296,7 +295,7 @@ class Fill(BaseModel):
     @property
     def price(self) -> int:
         """Get fill price.
-        
+
         Returns:
             Fill price in cents
         """
@@ -308,7 +307,7 @@ class Fill(BaseModel):
     @property
     def notional_value(self) -> int:
         """Calculate notional value.
-        
+
         Returns:
             Notional value in cents
         """
@@ -322,7 +321,7 @@ class Fill(BaseModel):
 
 class Balance(BaseModel):
     """Kalshi balance model.
-    
+
     Represents account balance information.
     """
 
@@ -332,7 +331,7 @@ class Balance(BaseModel):
     @property
     def available_balance(self) -> int:
         """Calculate available balance.
-        
+
         Returns:
             Available balance in cents
         """
