@@ -4,12 +4,15 @@ Represents current positions held in Kalshi markets.
 """
 
 from datetime import datetime
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.shared.models.base import Base, TimestampMixin
+
+if TYPE_CHECKING:
+    from src.shared.models.market import Market
 
 
 class Position(Base, TimestampMixin):
@@ -77,7 +80,7 @@ class Position(Base, TimestampMixin):
     )
 
     # Relationship to market
-    market: Mapped["Market"] = relationship("Market", backref="positions")  # type: ignore
+    market: Mapped["Market"] = relationship("Market", backref="positions")
 
     __table_args__ = (
         UniqueConstraint("market_id", "side", name="uq_positions_market_side"),

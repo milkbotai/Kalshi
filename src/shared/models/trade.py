@@ -4,12 +4,16 @@ Represents individual trade executions from filled orders.
 """
 
 from datetime import datetime
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import DateTime, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.shared.models.base import Base, TimestampMixin
+
+if TYPE_CHECKING:
+    from src.shared.models.market import Market
+    from src.shared.models.order import Order
 
 
 class Trade(Base, TimestampMixin):
@@ -80,8 +84,8 @@ class Trade(Base, TimestampMixin):
     )
 
     # Relationships
-    market: Mapped["Market"] = relationship("Market", backref="trades")  # type: ignore
-    order: Mapped[Optional["Order"]] = relationship("Order", backref="trades")  # type: ignore
+    market: Mapped["Market"] = relationship("Market", backref="trades")
+    order: Mapped[Optional["Order"]] = relationship("Order", backref="trades")
 
     __table_args__ = ({"comment": "Executed trades with P&L tracking"},)
 

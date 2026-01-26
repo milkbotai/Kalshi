@@ -4,12 +4,15 @@ Represents orders submitted to Kalshi exchange.
 """
 
 from datetime import datetime
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.shared.models.base import Base, TimestampMixin
+
+if TYPE_CHECKING:
+    from src.shared.models.market import Market
 
 
 class Order(Base, TimestampMixin):
@@ -97,7 +100,7 @@ class Order(Base, TimestampMixin):
     )
 
     # Relationship to market
-    market: Mapped["Market"] = relationship("Market", backref="orders")  # type: ignore
+    market: Mapped["Market"] = relationship("Market", backref="orders")
 
     __table_args__ = ({"comment": "Trading orders submitted to Kalshi"},)
 
