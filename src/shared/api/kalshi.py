@@ -242,7 +242,7 @@ class KalshiClient:
         )
 
         data = self._make_request("GET", "/markets", params=params)
-        return data.get("markets", [])
+        return cast(list[dict[str, Any]], data.get("markets", []))
 
     def get_market(self, ticker: str) -> dict[str, Any]:
         """Get detailed information for a specific market.
@@ -260,7 +260,7 @@ class KalshiClient:
         logger.info("fetching_kalshi_market", ticker=ticker)
 
         data = self._make_request("GET", f"/markets/{ticker}")
-        return data.get("market", {})
+        return cast(dict[str, Any], data.get("market", {}))
 
     def get_orderbook(self, ticker: str) -> dict[str, Any]:
         """Get orderbook for a market.
@@ -279,7 +279,7 @@ class KalshiClient:
         logger.info("fetching_kalshi_orderbook", ticker=ticker)
 
         data = self._make_request("GET", f"/markets/{ticker}/orderbook")
-        return data.get("orderbook", {})
+        return cast(dict[str, Any], data.get("orderbook", {}))
 
     def create_order(
         self,
@@ -341,7 +341,7 @@ class KalshiClient:
         )
 
         data = self._make_request("POST", "/portfolio/orders", json_data=payload)
-        return data.get("order", {})
+        return cast(dict[str, Any], data.get("order", {}))
 
     def cancel_order(self, order_id: str) -> dict[str, Any]:
         """Cancel an existing order.
@@ -387,7 +387,7 @@ class KalshiClient:
         logger.info("fetching_kalshi_orders", ticker=ticker, status=status)
 
         data = self._make_request("GET", "/portfolio/orders", params=params)
-        return data.get("orders", [])
+        return cast(list[dict[str, Any]], data.get("orders", []))
 
     def get_positions(self) -> list[dict[str, Any]]:
         """Get current positions.
@@ -402,7 +402,7 @@ class KalshiClient:
         logger.info("fetching_kalshi_positions")
 
         data = self._make_request("GET", "/portfolio/positions")
-        return data.get("positions", [])
+        return cast(list[dict[str, Any]], data.get("positions", []))
 
     def get_fills(
         self,
@@ -438,7 +438,7 @@ class KalshiClient:
         logger.info("fetching_kalshi_fills", ticker=ticker)
 
         data = self._make_request("GET", "/portfolio/fills", params=params)
-        return data.get("fills", [])
+        return cast(list[dict[str, Any]], data.get("fills", []))
 
     def get_balance(self) -> dict[str, Any]:
         """Get account balance.
@@ -454,4 +454,4 @@ class KalshiClient:
         logger.info("fetching_kalshi_balance")
 
         data = self._make_request("GET", "/portfolio/balance")
-        return data.get("balance", {})
+        return cast(dict[str, Any], data.get("balance", {}))

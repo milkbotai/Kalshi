@@ -208,8 +208,8 @@ class TestKalshiClient:
 
         # Verify DELETE request
         call_args = mock_request.call_args
-        assert call_args[0][0] == "DELETE"
-        assert "/portfolio/orders/order_123" in call_args[0][1]
+        assert call_args[1]["method"] == "DELETE"
+        assert "/portfolio/orders/order_123" in call_args[0][0]
 
     @patch("requests.Session.request")
     @patch.object(KalshiClient, "_ensure_authenticated")
@@ -336,7 +336,67 @@ class TestKalshiClient:
 
         assert markets == []
         assert mock_request.call_count == 2
-        assert mock_post.call_count == 1  # Re-authenticated once
+        assert mock_post.call_count == 2  # Initial auth + re-auth on 401
+
+    @patch("requests.Session.request")
+    @patch.object(KalshiClient, "_ensure_authenticated")
+    def test_get_market_http_error(self, mock_auth: MagicMock, mock_request: MagicMock) -> None:
+        """Test get_market handles HTTP errors."""
+        mock_response = MagicMock()
+        mock_response.status_code = 404
+
+        http_error = requests.HTTPError()
+        http_error.response = mock_response
+        mock_response.raise_for_status.side_effect = http_error
+
+        mock_request.return_value = mock_response
+
+        client = KalshiClient(api_key="test", api_secret="test")
+
+        with pytest.raises(requests.HTTPError):
+            client.get_market("INVALID-TICKER")
+
+    @patch("requests.Session.request")
+    @patch.object(KalshiClient, "_ensure_authenticated")
+    def test_create_order_http_error(self, mock_auth: MagicMock, mock_request: MagicMock) -> None:
+        """Test create_order handles HTTP errors."""
+        mock_response = MagicMock()
+        mock_response.status_code = 400
+
+        http_error = requests.HTTPError()
+        http_error.response = mock_response
+        mock_response.raise_for_status.side_effect = http_error
+
+        mock_request.return_value = mock_response
+
+        client = KalshiClient(api_key="test", api_secret="test")
+
+        with pytest.raises(requests.HTTPError):
+            client.create_order(
+                ticker="HIGHNYC-25JAN26",
+                side="yes",
+                action="buy",
+                count=10,
+                yes_price=45,
+            )
+
+    @patch("requests.Session.request")
+    @patch.object(KalshiClient, "_ensure_authenticated")
+    def test_get_balance_http_error(self, mock_auth: MagicMock, mock_request: MagicMock) -> None:
+        """Test get_balance handles HTTP errors."""
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+
+        http_error = requests.HTTPError()
+        http_error.response = mock_response
+        mock_response.raise_for_status.side_effect = http_error
+
+        mock_request.return_value = mock_response
+
+        client = KalshiClient(api_key="test", api_secret="test")
+
+        with pytest.raises(requests.HTTPError):
+            client.get_balance()
 
     @patch("requests.Session.request")
     def test_request_timeout(self, mock_request: MagicMock) -> None:
