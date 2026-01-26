@@ -55,6 +55,24 @@ class Settings(BaseSettings):
         le=50,
         description="Database connection pool size",
     )
+    db_pool_size: int = Field(
+        default=10,
+        ge=1,
+        le=50,
+        description="Database connection pool size (alias)",
+    )
+    db_max_overflow: int = Field(
+        default=20,
+        ge=0,
+        le=100,
+        description="Maximum overflow connections beyond pool size",
+    )
+    db_pool_timeout: int = Field(
+        default=30,
+        ge=5,
+        le=300,
+        description="Connection pool timeout in seconds",
+    )
 
     # Logging
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = Field(
