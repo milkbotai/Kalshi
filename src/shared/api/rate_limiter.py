@@ -23,6 +23,17 @@ class RateLimitMetrics:
     rejected_requests: int = 0
     total_wait_time: float = 0.0
 
+    @property
+    def avg_wait_time(self) -> float:
+        """Calculate average wait time per throttled request.
+        
+        Returns:
+            Average wait time in seconds, or 0.0 if no throttled requests
+        """
+        if self.throttled_requests == 0:
+            return 0.0
+        return self.total_wait_time / self.throttled_requests
+
     def to_dict(self) -> dict[str, Any]:
         """Convert metrics to dictionary.
 
@@ -34,11 +45,7 @@ class RateLimitMetrics:
             "throttled_requests": self.throttled_requests,
             "rejected_requests": self.rejected_requests,
             "total_wait_time": self.total_wait_time,
-            "avg_wait_time": (
-                self.total_wait_time / self.throttled_requests
-                if self.throttled_requests > 0
-                else 0.0
-            ),
+            "avg_wait_time": self.avg_wait_time,
         }
 
 
