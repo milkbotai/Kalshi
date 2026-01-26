@@ -76,9 +76,9 @@ class DailyHighTempStrategy(Strategy):
                 decision="HOLD",
                 reasons=[ReasonCode.MISSING_DATA],
                 features={
-                    "forecast_value": None,
-                    "strike_price": market.strike_price,
-                    "std_dev_used": self.default_std_dev,
+                    "forecast_high": None,
+                    "threshold": market.strike_price,
+                    "std_dev": self.default_std_dev,
                     "market_price": None,
                 },
             )
@@ -93,9 +93,9 @@ class DailyHighTempStrategy(Strategy):
                 decision="HOLD",
                 reasons=[ReasonCode.MISSING_DATA],
                 features={
-                    "forecast_value": weather.get("temperature"),
-                    "strike_price": None,
-                    "std_dev_used": self.default_std_dev,
+                    "forecast_high": weather.get("temperature"),
+                    "threshold": None,
+                    "std_dev": self.default_std_dev,
                     "market_price": None,
                 },
             )
@@ -137,9 +137,9 @@ class DailyHighTempStrategy(Strategy):
                 decision="HOLD",
                 reasons=[ReasonCode.HIGH_UNCERTAINTY],
                 features={
-                    "forecast_value": forecast_high,
-                    "strike_price": threshold,
-                    "std_dev_used": std_dev,
+                    "forecast_high": forecast_high,
+                    "threshold": threshold,
+                    "std_dev": std_dev,
                     "market_price": None,
                 },
             )
@@ -156,9 +156,9 @@ class DailyHighTempStrategy(Strategy):
                 decision="HOLD",
                 reasons=[ReasonCode.MISSING_DATA],
                 features={
-                    "forecast_value": forecast_high,
-                    "strike_price": threshold,
-                    "std_dev_used": std_dev,
+                    "forecast_high": forecast_high,
+                    "threshold": threshold,
+                    "std_dev": std_dev,
                     "market_price": None,
                 },
             )
@@ -202,9 +202,9 @@ class DailyHighTempStrategy(Strategy):
             max_price=max_price,
             reasons=reasons,
             features={
-                "forecast_value": forecast_high,
-                "strike_price": threshold,
-                "std_dev_used": std_dev,
+                "forecast_high": forecast_high,
+                "threshold": threshold,
+                "std_dev": std_dev,
                 "market_price": market_price,
             },
         )
