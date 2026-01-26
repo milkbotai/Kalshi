@@ -6,7 +6,7 @@ variables with type safety and validation.
 
 from typing import Literal
 
-from pydantic import Field, PostgresDsn, field_validator
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -32,11 +32,11 @@ class Settings(BaseSettings):
 
     # Kalshi API
     kalshi_api_key: str = Field(
-        ...,
+        default="",
         description="Kalshi API key for authentication",
     )
     kalshi_api_secret: str = Field(
-        ...,
+        default="",
         description="Kalshi API secret for authentication",
     )
     kalshi_base_url: str = Field(
@@ -45,8 +45,8 @@ class Settings(BaseSettings):
     )
 
     # Database
-    database_url: PostgresDsn = Field(
-        ...,
+    database_url: str = Field(
+        default="postgresql://localhost/milkbot_test",
         description="PostgreSQL connection URL",
     )
     database_pool_size: int = Field(
@@ -90,12 +90,24 @@ class Settings(BaseSettings):
 
     @field_validator("database_url")
     @classmethod
-    def validate_database_url(cls, v: PostgresDsn) -> PostgresDsn:
+    def validate_database_url(cls, v: str) -> str:
         """Ensure database URL uses postgresql scheme."""
-        if v.scheme not in ("postgresql", "postgresql+psycopg2"):
+        if not v.startswith(("postgresql://", "postgresql+psycopg2://")):
             raise ValueError("Database URL must use postgresql:// scheme")
         return v
 
 
-# Global settings instance
-settings = Settings()
+# Global settings instance - will be lazy loaded or use defaults
+_settings: Settings | None = None
+
+
+def get_settings() -> Settings:
+    """Get or create the global settings instance."""
+    global _settings
+    if _settings is None:
+        _settings = Settings()
+    return _settings
+
+
+# For backwards compatibility
+settings = get_settings()

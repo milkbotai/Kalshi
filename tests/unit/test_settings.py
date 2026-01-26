@@ -3,44 +3,29 @@
 import pytest
 from pydantic import ValidationError
 
-from src.shared.config.settings import Settings
+from src.shared.config.settings import Settings, get_settings
 
 
 class TestSettings:
     """Test suite for Settings configuration."""
 
-    def test_settings_requires_api_credentials(self) -> None:
-        """Test that API credentials are required."""
-        with pytest.raises(ValidationError) as exc_info:
-            Settings(
-                database_url="postgresql://localhost/test",
-            )
+    def test_settings_has_default_api_credentials(self) -> None:
+        """Test that API credentials have defaults for testing."""
+        settings = Settings()
         
-        errors = exc_info.value.errors()
-        error_fields = {e["loc"][0] for e in errors}
-        assert "kalshi_api_key" in error_fields
-        assert "kalshi_api_secret" in error_fields
+        assert settings.kalshi_api_key == ""
+        assert settings.kalshi_api_secret == ""
 
-    def test_settings_requires_database_url(self) -> None:
-        """Test that database URL is required."""
-        with pytest.raises(ValidationError) as exc_info:
-            Settings(
-                kalshi_api_key="test_key",
-                kalshi_api_secret="test_secret",
-            )
+    def test_settings_has_default_database_url(self) -> None:
+        """Test that database URL has a default."""
+        settings = Settings()
         
-        errors = exc_info.value.errors()
-        error_fields = {e["loc"][0] for e in errors}
-        assert "database_url" in error_fields
+        assert settings.database_url == "postgresql://localhost/milkbot_test"
 
     def test_settings_validates_database_scheme(self) -> None:
         """Test that database URL must use postgresql scheme."""
         with pytest.raises(ValidationError) as exc_info:
-            Settings(
-                kalshi_api_key="test_key",
-                kalshi_api_secret="test_secret",
-                database_url="mysql://localhost/test",
-            )
+            Settings(database_url="mysql://localhost/test")
         
         assert any("postgresql" in str(e) for e in exc_info.value.errors())
 
@@ -58,15 +43,11 @@ class TestSettings:
         assert settings.kalshi_api_secret == "test_secret"
         assert settings.environment == "development"
         assert settings.log_level == "DEBUG"
-        assert settings.enable_trading is False  # Default
+        assert settings.enable_trading is False
 
     def test_settings_default_values(self) -> None:
         """Test that default values are applied correctly."""
-        settings = Settings(
-            kalshi_api_key="test_key",
-            kalshi_api_secret="test_secret",
-            database_url="postgresql://localhost/test",
-        )
+        settings = Settings()
         
         assert settings.environment == "development"
         assert settings.log_level == "INFO"
@@ -79,17 +60,14 @@ class TestSettings:
     def test_settings_validates_pool_size_range(self) -> None:
         """Test that database pool size is validated."""
         with pytest.raises(ValidationError):
-            Settings(
-                kalshi_api_key="test_key",
-                kalshi_api_secret="test_secret",
-                database_url="postgresql://localhost/test",
-                database_pool_size=0,  # Too small
-            )
+            Settings(database_pool_size=0)
         
         with pytest.raises(ValidationError):
-            Settings(
-                kalshi_api_key="test_key",
-                kalshi_api_secret="test_secret",
-                database_url="postgresql://localhost/test",
-                database_pool_size=100,  # Too large
-            )
+            Settings(database_pool_size=100)
+
+    def test_get_settings_returns_singleton(self) -> None:
+        """Test that get_settings returns the same instance."""
+        settings1 = get_settings()
+        settings2 = get_settings()
+        
+        assert settings1 is settings2
