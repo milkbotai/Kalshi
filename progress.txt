@@ -1,0 +1,21 @@
+# Milkbot Kalshi — Progress Log
+# This file tracks completed work across Ralph iterations
+# APPEND ONLY — Never overwrite previous entries
+
+---
+
+## Project Initialized
+Date: 2026-01-25
+
+Status: Ready for Ralph autonomous implementation
+Stories Total: 60
+Stories Completed: 0
+Next Story: 1.1 (Constants & Test Fixtures)
+
+Pre-flight Notes:
+- All specification documents in place (22 specs)
+- prd.json validated with 60 stories
+- requirements.txt ready
+- Project structure needs to be created (src/, tests/, etc.)
+
+---
