@@ -32,15 +32,18 @@ class TestNWSClient:
         """Test rate limiting enforces minimum interval between requests."""
         client = NWSClient()
 
-        # Simulate rapid requests - need 4 values: 2 for first call, 2 for second call
-        mock_time.side_effect = [0.0, 0.0, 0.5, 0.5]  # Second request too soon
+        # Simulate rapid requests
+        # First call: t=0.0 (elapsed check), t=0.0 (set _last_request_time)
+        # Second call: t=0.5 (elapsed check = 0.5s, should sleep ~0.5s), t=0.5 (set _last_request_time)
+        mock_time.side_effect = [0.0, 0.0, 0.5, 0.5]
 
-        client._rate_limit()  # First request
-        client._rate_limit()  # Second request should sleep
+        client._rate_limit()  # First request - no sleep (first ever)
+        client._rate_limit()  # Second request - should sleep because only 0.5s elapsed
 
+        # Should sleep once for approximately 0.5 seconds (1.0 - 0.5)
         mock_sleep.assert_called_once()
         sleep_time = mock_sleep.call_args[0][0]
-        assert sleep_time > 0
+        assert 0.4 <= sleep_time <= 0.6  # Allow small tolerance
 
     @patch("requests.Session.get")
     def test_get_forecast_success(self, mock_get: MagicMock) -> None:
