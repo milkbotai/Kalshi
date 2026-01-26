@@ -6,11 +6,7 @@ from unittest.mock import patch
 
 import pytest
 
-from src.shared.api.rate_limiter import (
-    RateLimiterManager,
-    TokenBucket,
-    get_rate_limiter_manager,
-)
+from src.shared.api.rate_limiter import RateLimiterManager, TokenBucket, get_rate_limiter_manager
 
 
 class TestTokenBucket:

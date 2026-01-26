@@ -250,7 +250,9 @@ class RateLimiterManager:
             Dictionary mapping limiter names to their metrics
         """
         with self._lock:
-            return {name: limiter.get_metrics().to_dict() for name, limiter in self._limiters.items()}
+            return {
+                name: limiter.get_metrics().to_dict() for name, limiter in self._limiters.items()
+            }
 
     def reset_all_metrics(self) -> None:
         """Reset metrics for all rate limiters."""
