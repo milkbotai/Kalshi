@@ -213,9 +213,7 @@ class TestKalshiClient:
 
     @patch("requests.Session.request")
     @patch.object(KalshiClient, "_ensure_authenticated")
-    def test_get_orders_with_filters(
-        self, mock_auth: MagicMock, mock_request: MagicMock
-    ) -> None:
+    def test_get_orders_with_filters(self, mock_auth: MagicMock, mock_request: MagicMock) -> None:
         """Test fetching orders with ticker and status filters."""
         mock_response = MagicMock()
         mock_response.status_code = 200
