@@ -32,8 +32,8 @@ class TestNWSClient:
         """Test rate limiting enforces minimum interval between requests."""
         client = NWSClient()
 
-        # Simulate rapid requests
-        mock_time.side_effect = [0.0, 0.5, 0.5]  # Second request too soon
+        # Simulate rapid requests - need 4 values: 2 for first call, 2 for second call
+        mock_time.side_effect = [0.0, 0.0, 0.5, 0.5]  # Second request too soon
 
         client._rate_limit()  # First request
         client._rate_limit()  # Second request should sleep
@@ -180,13 +180,18 @@ class TestNWSClient:
         with pytest.raises(requests.Timeout):
             client.get_forecast("OKX", 33, 37)
 
+    @patch("src.shared.api.nws.time.sleep")
     @patch("requests.Session.get")
-    def test_retry_on_server_error(self, mock_get: MagicMock) -> None:
+    def test_retry_on_server_error(self, mock_get: MagicMock, mock_sleep: MagicMock) -> None:
         """Test automatic retry on server errors."""
-        # First two calls fail, third succeeds
+        # First two calls fail with 503, third succeeds
         mock_response_fail = MagicMock()
         mock_response_fail.status_code = 503
-        mock_response_fail.raise_for_status.side_effect = requests.HTTPError()
+        
+        # Create HTTPError with response attached
+        http_error = requests.HTTPError()
+        http_error.response = mock_response_fail
+        mock_response_fail.raise_for_status.side_effect = http_error
 
         mock_response_success = MagicMock()
         mock_response_success.status_code = 200
@@ -204,3 +209,8 @@ class TestNWSClient:
         # Should succeed after retries
         assert "properties" in result
         assert mock_get.call_count == 3
+        
+        # Verify exponential backoff was used (1s, 2s)
+        assert mock_sleep.call_count == 2
+        assert mock_sleep.call_args_list[0][0][0] == 1  # First retry: 1 second
+        assert mock_sleep.call_args_list[1][0][0] == 2  # Second retry: 2 seconds

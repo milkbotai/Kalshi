@@ -5,7 +5,7 @@ Implements caching and rate limiting per NWS guidelines.
 """
 
 import time
-from typing import Any
+from typing import Any, cast
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -88,24 +88,46 @@ class NWSClient:
 
         logger.debug("nws_request", url=url)
 
-        try:
-            response = self.session.get(url, headers=headers, timeout=30)
-            response.raise_for_status()
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                response = self.session.get(url, headers=headers, timeout=30)
+                response.raise_for_status()
 
-            logger.debug("nws_request_success", url=url, status=response.status_code)
-            return response.json()
+                logger.debug("nws_request_success", url=url, status=response.status_code)
+                return cast(dict[str, Any], response.json())
 
-        except requests.HTTPError as e:
-            logger.error(
-                "nws_request_failed",
-                url=url,
-                status=e.response.status_code if e.response else None,
-                error=str(e),
-            )
-            raise
-        except requests.RequestException as e:
-            logger.error("nws_request_error", url=url, error=str(e))
-            raise
+            except requests.HTTPError as e:
+                status_code = e.response.status_code if e.response else None
+                
+                # Retry on server errors (5xx) and rate limiting (429)
+                if status_code in [429, 500, 502, 503, 504] and attempt < max_retries - 1:
+                    backoff_time = 2 ** attempt  # Exponential backoff: 1s, 2s, 4s
+                    logger.warning(
+                        "nws_request_retry",
+                        url=url,
+                        status=status_code,
+                        attempt=attempt + 1,
+                        backoff_seconds=backoff_time,
+                    )
+                    time.sleep(backoff_time)
+                    continue
+                
+                # Final attempt or non-retryable error
+                logger.error(
+                    "nws_request_failed",
+                    url=url,
+                    status=status_code,
+                    error=str(e),
+                )
+                raise
+                
+            except requests.RequestException as e:
+                logger.error("nws_request_error", url=url, error=str(e))
+                raise
+
+        # Should never reach here, but satisfy type checker
+        raise requests.HTTPError("Max retries exceeded")
 
     def get_forecast(self, office: str, grid_x: int, grid_y: int) -> dict[str, Any]:
         """Get forecast for a grid point.
