@@ -106,11 +106,6 @@ class DailyHighTempStrategy(Strategy):
         # Get standard deviation (use historical if available, else default)
         std_dev = weather.get("forecast_std_dev", self.default_std_dev)
 
-        # Check if market pricing is missing
-        if market.yes_bid is None and market.yes_ask is None:
-            logger.warning("missing_market_pricing", ticker=market.ticker)
-            reasons.append(ReasonCode.MISSING_DATA)
-
         # Calculate probability of high >= threshold
         p_yes = self.calculate_threshold_probability(
             forecast_value=forecast_high,
@@ -121,78 +116,81 @@ class DailyHighTempStrategy(Strategy):
         # Calculate uncertainty (normalized std dev)
         uncertainty = min(std_dev / 10.0, 1.0)  # Normalize to 0-1
 
+        # Get market price (use mid price if available)
+        market_price = market.mid_price
+
+        # Collect all reason codes before making decision
+        # Check if market pricing is missing
+        if market.yes_bid is None and market.yes_ask is None:
+            logger.warning("missing_market_pricing", ticker=market.ticker)
+            if ReasonCode.MISSING_DATA not in reasons:
+                reasons.append(ReasonCode.MISSING_DATA)
+
+        # Check if market price unavailable
+        if market_price is None:
+            logger.warning("missing_market_price", ticker=market.ticker)
+            if ReasonCode.MISSING_DATA not in reasons:
+                reasons.append(ReasonCode.MISSING_DATA)
+
         # Check if uncertainty too high
         if uncertainty > self.max_uncertainty:
             logger.info(
-                "high_uncertainty_hold",
+                "high_uncertainty",
                 ticker=market.ticker,
                 uncertainty=uncertainty,
                 max_uncertainty=self.max_uncertainty,
             )
-            return Signal(
-                ticker=market.ticker,
+            reasons.append(ReasonCode.HIGH_UNCERTAINTY)
+
+        # Calculate edge (if we have market price)
+        edge = 0.0
+        if market_price is not None:
+            edge = self.calculate_edge(
                 p_yes=p_yes,
-                uncertainty=uncertainty,
-                edge=0.0,
-                decision="HOLD",
-                reasons=[ReasonCode.HIGH_UNCERTAINTY],
-                features={
-                    "forecast_high": forecast_high,
-                    "threshold": threshold,
-                    "std_dev": std_dev,
-                    "market_price": None,
-                },
+                market_price=market_price,
+                transaction_cost=self.transaction_cost,
             )
 
-        # Get market price (use mid price if available)
-        market_price = market.mid_price
-        if market_price is None:
-            logger.warning("missing_market_price", ticker=market.ticker)
-            # Add MISSING_DATA to existing reasons (may already have it from pricing check)
-            if ReasonCode.MISSING_DATA not in reasons:
-                reasons.append(ReasonCode.MISSING_DATA)
+            # Check if edge insufficient
+            if edge < self.min_edge * 100:  # Convert min_edge to cents
+                if ReasonCode.INSUFFICIENT_EDGE not in reasons:
+                    reasons.append(ReasonCode.INSUFFICIENT_EDGE)
+
+        # Make decision: if any blocking reasons exist, return HOLD
+        if reasons:
+            logger.info(
+                "hold_decision",
+                ticker=market.ticker,
+                reasons=[r.value for r in reasons],
+            )
             return Signal(
                 ticker=market.ticker,
                 p_yes=p_yes,
                 uncertainty=uncertainty,
-                edge=0.0,
+                edge=edge,
                 decision="HOLD",
+                side=None,
+                max_price=None,
                 reasons=reasons,
                 features={
                     "forecast_high": forecast_high,
                     "threshold": threshold,
                     "std_dev": std_dev,
-                    "market_price": None,
+                    "market_price": market_price,
                 },
             )
 
-        # Calculate edge
-        edge = self.calculate_edge(
-            p_yes=p_yes,
-            market_price=market_price,
-            transaction_cost=self.transaction_cost,
-        )
-
-        # Make decision based on edge
-        if edge >= self.min_edge * 100:  # Convert min_edge to cents
-            # Positive edge: buy YES if p_yes > 0.5, buy NO otherwise
-            if p_yes > 0.5:
-                decision = "BUY"
-                side = "yes"
-                max_price = p_yes * 100 - self.transaction_cost
-            else:
-                decision = "BUY"
-                side = "no"
-                max_price = (1 - p_yes) * 100 - self.transaction_cost
-
-            reasons.extend([ReasonCode.STRONG_EDGE, ReasonCode.SPREAD_OK])
+        # No blocking reasons: make BUY decision based on edge
+        if p_yes > 0.5:
+            decision = "BUY"
+            side = "yes"
+            max_price = p_yes * 100 - self.transaction_cost
         else:
-            decision = "HOLD"
-            side = None
-            max_price = None
-            # Add INSUFFICIENT_EDGE if not already present
-            if ReasonCode.INSUFFICIENT_EDGE not in reasons:
-                reasons.append(ReasonCode.INSUFFICIENT_EDGE)
+            decision = "BUY"
+            side = "no"
+            max_price = (1 - p_yes) * 100 - self.transaction_cost
+
+        buy_reasons = [ReasonCode.STRONG_EDGE, ReasonCode.SPREAD_OK]
 
         signal = Signal(
             ticker=market.ticker,
@@ -202,7 +200,7 @@ class DailyHighTempStrategy(Strategy):
             decision=decision,
             side=side,
             max_price=max_price,
-            reasons=reasons,
+            reasons=buy_reasons,
             features={
                 "forecast_high": forecast_high,
                 "threshold": threshold,
