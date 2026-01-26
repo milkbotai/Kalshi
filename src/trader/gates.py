@@ -13,14 +13,14 @@ logger = get_logger(__name__)
 
 def check_spread(market: Market, max_spread_cents: int = 3) -> bool:
     """Check if market spread is acceptable.
-    
+
     Args:
         market: Market to check
         max_spread_cents: Maximum acceptable spread in cents
-        
+
     Returns:
         True if spread <= max_spread_cents
-        
+
     Example:
         >>> market = Market(ticker="TEST", yes_bid=45, yes_ask=48, ...)
         >>> check_spread(market, max_spread_cents=3)
@@ -33,7 +33,7 @@ def check_spread(market: Market, max_spread_cents: int = 3) -> bool:
             reason="No bid/ask pricing available",
         )
         return False
-    
+
     if market.spread_cents > max_spread_cents:
         logger.info(
             "spread_check_failed",
@@ -43,7 +43,7 @@ def check_spread(market: Market, max_spread_cents: int = 3) -> bool:
             reason=f"Spread {market.spread_cents}¢ exceeds max {max_spread_cents}¢",
         )
         return False
-    
+
     logger.debug(
         "spread_check_passed",
         ticker=market.ticker,
@@ -58,15 +58,15 @@ def check_liquidity(
     min_liquidity_multiple: float = 5.0,
 ) -> bool:
     """Check if market has sufficient liquidity.
-    
+
     Args:
         market: Market to check
         quantity: Desired trade quantity
         min_liquidity_multiple: Minimum liquidity as multiple of quantity
-        
+
     Returns:
         True if total liquidity >= quantity * min_liquidity_multiple
-        
+
     Example:
         >>> market = Market(ticker="TEST", volume=1000, open_interest=5000, ...)
         >>> check_liquidity(market, quantity=100, min_liquidity_multiple=5.0)
@@ -74,7 +74,7 @@ def check_liquidity(
     """
     total_liquidity = market.volume + market.open_interest
     required_liquidity = quantity * min_liquidity_multiple
-    
+
     if total_liquidity < required_liquidity:
         logger.info(
             "liquidity_check_failed",
@@ -85,7 +85,7 @@ def check_liquidity(
             reason=f"Liquidity {total_liquidity} below required {required_liquidity}",
         )
         return False
-    
+
     logger.debug(
         "liquidity_check_passed",
         ticker=market.ticker,
@@ -100,14 +100,14 @@ def check_edge(
     min_edge_cents: float = 0.5,
 ) -> bool:
     """Check if signal has sufficient edge.
-    
+
     Args:
         signal: Signal to check
         min_edge_cents: Minimum edge required in cents
-        
+
     Returns:
         True if edge >= min_edge_cents
-        
+
     Example:
         >>> signal = Signal(ticker="TEST", p_yes=0.6, edge=5.0, ...)
         >>> check_edge(signal, min_edge_cents=0.5)
@@ -122,7 +122,7 @@ def check_edge(
             reason=f"Edge {signal.edge:.2f}¢ below minimum {min_edge_cents}¢",
         )
         return False
-    
+
     logger.debug(
         "edge_check_passed",
         ticker=signal.ticker,
@@ -140,7 +140,7 @@ def check_all_gates(
     min_edge_cents: float = 0.5,
 ) -> tuple[bool, list[str]]:
     """Check all execution gates.
-    
+
     Args:
         signal: Trading signal
         market: Market to trade
@@ -148,28 +148,28 @@ def check_all_gates(
         max_spread_cents: Maximum acceptable spread
         min_liquidity_multiple: Minimum liquidity multiple
         min_edge_cents: Minimum edge required
-        
+
     Returns:
         Tuple of (all_passed, failed_reasons)
-        
+
     Example:
         >>> passed, reasons = check_all_gates(signal, market, quantity=100)
         >>> if passed:
         ...     # Execute trade
     """
     failed_reasons = []
-    
+
     if not check_spread(market, max_spread_cents):
         failed_reasons.append("spread_too_wide")
-    
+
     if not check_liquidity(market, quantity, min_liquidity_multiple):
         failed_reasons.append("insufficient_liquidity")
-    
+
     if not check_edge(signal, min_edge_cents):
         failed_reasons.append("insufficient_edge")
-    
+
     all_passed = len(failed_reasons) == 0
-    
+
     if all_passed:
         logger.info("all_gates_passed", ticker=signal.ticker)
     else:
@@ -178,5 +178,5 @@ def check_all_gates(
             ticker=signal.ticker,
             failed_reasons=failed_reasons,
         )
-    
+
     return all_passed, failed_reasons
