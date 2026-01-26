@@ -33,11 +33,13 @@ class TestNWSClient:
         client = NWSClient()
 
         # Simulate rapid requests
-        # First call: t=0.0 (elapsed check), t=0.0 (set _last_request_time)
-        # Second call: t=0.5 (elapsed check = 0.5s, should sleep ~0.5s), t=0.5 (set _last_request_time)
-        mock_time.side_effect = [0.0, 0.0, 0.5, 0.5]
+        # First call: current_time=1.0, elapsed=1.0 (since _last_request_time=0.0), no sleep needed
+        # Then set _last_request_time=1.0
+        # Second call: current_time=1.5, elapsed=0.5, should sleep ~0.5s
+        # Then set _last_request_time=1.5
+        mock_time.side_effect = [1.0, 1.0, 1.5, 1.5]
 
-        client._rate_limit()  # First request - no sleep (first ever)
+        client._rate_limit()  # First request - no sleep (enough time elapsed from 0.0)
         client._rate_limit()  # Second request - should sleep because only 0.5s elapsed
 
         # Should sleep once for approximately 0.5 seconds (1.0 - 0.5)
