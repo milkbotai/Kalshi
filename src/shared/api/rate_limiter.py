@@ -143,22 +143,25 @@ class TokenBucket:
                     )
                     return False
 
-                # Check timeout
+                # Calculate wait time until next token
+                tokens_needed = tokens - self._tokens
+                wait_time = tokens_needed / self.rate
+
+                # Check if wait time exceeds timeout
                 if timeout is not None:
                     elapsed = time.time() - start_time
-                    if elapsed >= timeout:
+                    remaining_timeout = timeout - elapsed
+                    
+                    if wait_time > remaining_timeout:
                         self._metrics.rejected_requests += 1
                         logger.warning(
                             "rate_limit_timeout",
                             name=self.name,
                             timeout=timeout,
-                            elapsed=elapsed,
+                            wait_time_needed=wait_time,
+                            remaining_timeout=remaining_timeout,
                         )
                         return False
-
-                # Calculate wait time until next token
-                tokens_needed = tokens - self._tokens
-                wait_time = tokens_needed / self.rate
 
                 # Cap wait time to avoid excessive delays
                 wait_time = min(wait_time, 1.0)
