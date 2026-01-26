@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
-import scipy.stats as stats
+import scipy.stats as stats  # type: ignore[import-untyped]
 
 from src.shared.api.response_models import Market
 from src.shared.config.logging import get_logger
@@ -143,7 +143,7 @@ class Strategy:
         z_score = (forecast_value - threshold) / std_dev
 
         # Probability of exceeding threshold
-        p_exceed = 1.0 - stats.norm.cdf(z_score)
+        p_exceed = float(1.0 - stats.norm.cdf(z_score))  # type: ignore[no-any-return]
 
         logger.debug(
             "threshold_probability_calculated",

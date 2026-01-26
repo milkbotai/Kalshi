@@ -175,14 +175,14 @@ class TestStrategy:
             threshold=32.0,
             std_dev=0.0,
         )
-        assert p_above == 0.0  # Forecast > threshold, so P(X >= threshold) = 0
+        assert p_above == 1.0  # Forecast > threshold, so P(X >= threshold) = 1
 
         p_below = strategy.calculate_threshold_probability(
             forecast_value=30.0,
             threshold=32.0,
             std_dev=0.0,
         )
-        assert p_below == 1.0  # Forecast < threshold, so P(X >= threshold) = 1
+        assert p_below == 0.0  # Forecast < threshold, so P(X >= threshold) = 0
 
     def test_calculate_edge_positive(self) -> None:
         """Test edge calculation with positive edge."""
@@ -224,4 +224,4 @@ class TestStrategy:
             transaction_cost=0.0,
         )
 
-        assert edge == 5.0  # 55 - 50
+        assert edge == pytest.approx(5.0)  # 55 - 50
