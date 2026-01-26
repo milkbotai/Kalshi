@@ -5,9 +5,9 @@ Provides type safety and automatic validation for external API data.
 """
 
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 # ============================================================================
 # NWS Response Models
@@ -36,10 +36,7 @@ class ForecastPeriod(BaseModel):
         None, description="Precipitation probability"
     )
 
-    class Config:
-        """Pydantic config."""
-
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class Forecast(BaseModel):
@@ -55,10 +52,7 @@ class Forecast(BaseModel):
     update_time: datetime = Field(..., description="Update timestamp")
     periods: list[ForecastPeriod] = Field(..., description="Forecast periods")
 
-    class Config:
-        """Pydantic config."""
-
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class Observation(BaseModel):
@@ -91,13 +85,10 @@ class Observation(BaseModel):
         if v is None:
             return None
         if isinstance(v, dict):
-            return v.get("value")
+            return cast(float | None, v.get("value"))
         return v
 
-    class Config:
-        """Pydantic config."""
-
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 # ============================================================================
@@ -151,10 +142,7 @@ class Market(BaseModel):
             return (self.yes_bid + self.yes_ask) / 2.0
         return None
 
-    class Config:
-        """Pydantic config."""
-
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class OrderbookLevel(BaseModel):
@@ -166,10 +154,7 @@ class OrderbookLevel(BaseModel):
     price: int = Field(..., description="Price in cents")
     quantity: int = Field(..., description="Quantity available")
 
-    class Config:
-        """Pydantic config."""
-
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class Orderbook(BaseModel):
@@ -203,10 +188,7 @@ class Orderbook(BaseModel):
             return min(level.price for level in self.yes)
         return None
 
-    class Config:
-        """Pydantic config."""
-
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class Order(BaseModel):
@@ -240,10 +222,7 @@ class Order(BaseModel):
             return self.filled_count >= self.count
         return self.status == "filled"
 
-    class Config:
-        """Pydantic config."""
-
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class Position(BaseModel):
@@ -269,10 +248,7 @@ class Position(BaseModel):
             return self.total_cost / abs(self.position)
         return None
 
-    class Config:
-        """Pydantic config."""
-
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class Fill(BaseModel):
@@ -313,10 +289,7 @@ class Fill(BaseModel):
         """
         return self.price * self.count
 
-    class Config:
-        """Pydantic config."""
-
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class Balance(BaseModel):
@@ -337,7 +310,4 @@ class Balance(BaseModel):
         """
         return self.balance - self.payout
 
-    class Config:
-        """Pydantic config."""
-
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)
