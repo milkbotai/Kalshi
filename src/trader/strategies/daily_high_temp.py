@@ -148,13 +148,16 @@ class DailyHighTempStrategy(Strategy):
         market_price = market.mid_price
         if market_price is None:
             logger.warning("missing_market_price", ticker=market.ticker)
+            # Add MISSING_DATA to existing reasons (may already have it from pricing check)
+            if ReasonCode.MISSING_DATA not in reasons:
+                reasons.append(ReasonCode.MISSING_DATA)
             return Signal(
                 ticker=market.ticker,
                 p_yes=p_yes,
                 uncertainty=uncertainty,
                 edge=0.0,
                 decision="HOLD",
-                reasons=[ReasonCode.MISSING_DATA],
+                reasons=reasons,
                 features={
                     "forecast_high": forecast_high,
                     "threshold": threshold,
@@ -170,11 +173,7 @@ class DailyHighTempStrategy(Strategy):
             transaction_cost=self.transaction_cost,
         )
 
-        # Check if edge is insufficient
-        if edge < self.min_edge * 100:  # Convert min_edge to cents
-            reasons.append(ReasonCode.INSUFFICIENT_EDGE)
-
-        # Make decision
+        # Make decision based on edge
         if edge >= self.min_edge * 100:  # Convert min_edge to cents
             # Positive edge: buy YES if p_yes > 0.5, buy NO otherwise
             if p_yes > 0.5:
@@ -191,6 +190,9 @@ class DailyHighTempStrategy(Strategy):
             decision = "HOLD"
             side = None
             max_price = None
+            # Add INSUFFICIENT_EDGE if not already present
+            if ReasonCode.INSUFFICIENT_EDGE not in reasons:
+                reasons.append(ReasonCode.INSUFFICIENT_EDGE)
 
         signal = Signal(
             ticker=market.ticker,
