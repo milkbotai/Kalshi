@@ -86,7 +86,8 @@ class Observation(BaseModel):
             return None
         if isinstance(v, dict):
             return cast(float | None, v.get("value"))
-        return v
+        result: float | None = v if isinstance(v, (int, float)) else None
+        return result
 
     model_config = ConfigDict(populate_by_name=True)
 
