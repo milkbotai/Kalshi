@@ -1,6 +1,6 @@
 """Unit tests for Order Management System."""
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -340,8 +340,8 @@ class TestOrderManagementSystem:
         )
 
         # Old fill (before cutoff)
-        old_time = datetime.utcnow() - timedelta(hours=2)
-        since_timestamp = datetime.utcnow() - timedelta(hours=1)
+        old_time = datetime.now(timezone.utc) - timedelta(hours=2)
+        since_timestamp = datetime.now(timezone.utc) - timedelta(hours=1)
 
         fills = [
             {

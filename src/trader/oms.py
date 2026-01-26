@@ -4,7 +4,7 @@ Manages order lifecycle with idempotency, state machine, and duplicate preventio
 """
 
 import hashlib
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from src.shared.config.logging import get_logger
@@ -140,7 +140,7 @@ class OrderManagementSystem:
             "quantity": quantity,
             "limit_price": limit_price,
             "status": OrderState.PENDING,
-            "created_at": datetime.utcnow(),
+            "created_at": datetime.now(timezone.utc),
             "submitted_at": None,
             "filled_at": None,
             "cancelled_at": None,
@@ -199,11 +199,11 @@ class OrderManagementSystem:
 
         # Update timestamps based on status
         if status == OrderState.SUBMITTED and order["submitted_at"] is None:
-            order["submitted_at"] = datetime.utcnow()
+            order["submitted_at"] = datetime.now(timezone.utc)
         elif status == OrderState.FILLED and order["filled_at"] is None:
-            order["filled_at"] = datetime.utcnow()
+            order["filled_at"] = datetime.now(timezone.utc)
         elif status == OrderState.CANCELLED and order["cancelled_at"] is None:
-            order["cancelled_at"] = datetime.utcnow()
+            order["cancelled_at"] = datetime.now(timezone.utc)
 
         logger.info(
             "order_status_updated",
@@ -285,9 +285,9 @@ class OrderManagementSystem:
                 try:
                     fill_time = datetime.fromisoformat(fill_time_str.replace("Z", "+00:00"))
                 except (ValueError, AttributeError):
-                    fill_time = datetime.utcnow()
+                    fill_time = datetime.now(timezone.utc)
             else:
-                fill_time = datetime.utcnow()
+                fill_time = datetime.now(timezone.utc)
 
             # Skip if before since_timestamp
             if since_timestamp and fill_time < since_timestamp:
