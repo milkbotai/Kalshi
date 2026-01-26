@@ -15,7 +15,7 @@ logger = get_logger(__name__)
 
 class DailyHighTempStrategy(Strategy):
     """Strategy for daily high temperature markets.
-    
+
     Uses NWS forecast high temperature and historical variance to
     calculate probability of exceeding threshold. Returns HOLD if
     uncertainty exceeds configured maximum.
@@ -30,7 +30,7 @@ class DailyHighTempStrategy(Strategy):
         transaction_cost: float = 1.0,
     ) -> None:
         """Initialize daily high temperature strategy.
-        
+
         Args:
             name: Strategy name
             min_edge: Minimum edge required to trade (default 0.5%)
@@ -42,7 +42,7 @@ class DailyHighTempStrategy(Strategy):
         self.max_uncertainty = max_uncertainty
         self.default_std_dev = default_std_dev
         self.transaction_cost = transaction_cost
-        
+
         logger.info(
             "daily_high_temp_strategy_initialized",
             max_uncertainty=max_uncertainty,
@@ -55,16 +55,16 @@ class DailyHighTempStrategy(Strategy):
         market: Market,
     ) -> Signal:
         """Evaluate daily high temperature market.
-        
+
         Args:
             weather: Normalized weather data with forecast high temp
             market: Market to evaluate (must have strike_price)
-            
+
         Returns:
             Signal with probability estimate and decision
         """
         reasons: list[ReasonCode] = []
-        
+
         # Validate inputs
         if "temperature" not in weather or weather["temperature"] is None:
             logger.warning("missing_forecast_temperature", ticker=market.ticker)
@@ -76,7 +76,7 @@ class DailyHighTempStrategy(Strategy):
                 decision="HOLD",
                 reasons=[ReasonCode.MISSING_DATA],
             )
-        
+
         if market.strike_price is None:
             logger.warning("missing_strike_price", ticker=market.ticker)
             return Signal(
@@ -87,23 +87,23 @@ class DailyHighTempStrategy(Strategy):
                 decision="HOLD",
                 reasons=[ReasonCode.MISSING_DATA],
             )
-        
+
         forecast_high = weather["temperature"]
         threshold = market.strike_price
-        
+
         # Get standard deviation (use historical if available, else default)
         std_dev = weather.get("forecast_std_dev", self.default_std_dev)
-        
+
         # Calculate probability of high >= threshold
         p_yes = self.calculate_threshold_probability(
             forecast_value=forecast_high,
             threshold=threshold,
             std_dev=std_dev,
         )
-        
+
         # Calculate uncertainty (normalized std dev)
         uncertainty = min(std_dev / 10.0, 1.0)  # Normalize to 0-1
-        
+
         # Check if uncertainty too high
         if uncertainty > self.max_uncertainty:
             logger.info(
@@ -120,7 +120,7 @@ class DailyHighTempStrategy(Strategy):
                 decision="HOLD",
                 reasons=[ReasonCode.HIGH_UNCERTAINTY],
             )
-        
+
         # Get market price (use mid price if available)
         market_price = market.mid_price
         if market_price is None:
@@ -133,14 +133,14 @@ class DailyHighTempStrategy(Strategy):
                 decision="HOLD",
                 reasons=[ReasonCode.MISSING_DATA],
             )
-        
+
         # Calculate edge
         edge = self.calculate_edge(
             p_yes=p_yes,
             market_price=market_price,
             transaction_cost=self.transaction_cost,
         )
-        
+
         # Make decision
         if edge >= self.min_edge * 100:  # Convert min_edge to cents
             # Positive edge: buy YES if p_yes > 0.5, buy NO otherwise
@@ -152,14 +152,14 @@ class DailyHighTempStrategy(Strategy):
                 decision = "BUY"
                 side = "no"
                 max_price = (1 - p_yes) * 100 - self.transaction_cost
-            
+
             reasons.extend([ReasonCode.STRONG_EDGE, ReasonCode.SPREAD_OK])
         else:
             decision = "HOLD"
             side = None
             max_price = None
             reasons.append(ReasonCode.INSUFFICIENT_EDGE)
-        
+
         signal = Signal(
             ticker=market.ticker,
             p_yes=p_yes,
@@ -176,7 +176,7 @@ class DailyHighTempStrategy(Strategy):
                 "market_price": market_price,
             },
         )
-        
+
         logger.info(
             "signal_generated",
             ticker=market.ticker,
@@ -184,5 +184,5 @@ class DailyHighTempStrategy(Strategy):
             edge=edge,
             decision=decision,
         )
-        
+
         return signal
