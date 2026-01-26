@@ -143,7 +143,7 @@ class Strategy:
         z_score = (forecast_value - threshold) / std_dev
 
         # Probability of exceeding threshold
-        p_exceed = float(1.0 - stats.norm.cdf(z_score))  # type: ignore[no-any-return]
+        p_exceed = float(1.0 - stats.norm.cdf(z_score))
 
         logger.debug(
             "threshold_probability_calculated",

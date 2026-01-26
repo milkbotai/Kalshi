@@ -75,6 +75,12 @@ class DailyHighTempStrategy(Strategy):
                 edge=0.0,
                 decision="HOLD",
                 reasons=[ReasonCode.MISSING_DATA],
+                features={
+                    "forecast_value": None,
+                    "strike_price": market.strike_price,
+                    "std_dev_used": self.default_std_dev,
+                    "market_price": None,
+                },
             )
 
         if market.strike_price is None:
@@ -86,6 +92,12 @@ class DailyHighTempStrategy(Strategy):
                 edge=0.0,
                 decision="HOLD",
                 reasons=[ReasonCode.MISSING_DATA],
+                features={
+                    "forecast_value": weather.get("temperature"),
+                    "strike_price": None,
+                    "std_dev_used": self.default_std_dev,
+                    "market_price": None,
+                },
             )
 
         forecast_high = weather["temperature"]
@@ -93,6 +105,11 @@ class DailyHighTempStrategy(Strategy):
 
         # Get standard deviation (use historical if available, else default)
         std_dev = weather.get("forecast_std_dev", self.default_std_dev)
+
+        # Check if market pricing is missing
+        if market.yes_bid is None and market.yes_ask is None:
+            logger.warning("missing_market_pricing", ticker=market.ticker)
+            reasons.append(ReasonCode.MISSING_DATA)
 
         # Calculate probability of high >= threshold
         p_yes = self.calculate_threshold_probability(
@@ -119,6 +136,12 @@ class DailyHighTempStrategy(Strategy):
                 edge=0.0,
                 decision="HOLD",
                 reasons=[ReasonCode.HIGH_UNCERTAINTY],
+                features={
+                    "forecast_value": forecast_high,
+                    "strike_price": threshold,
+                    "std_dev_used": std_dev,
+                    "market_price": None,
+                },
             )
 
         # Get market price (use mid price if available)
@@ -132,6 +155,12 @@ class DailyHighTempStrategy(Strategy):
                 edge=0.0,
                 decision="HOLD",
                 reasons=[ReasonCode.MISSING_DATA],
+                features={
+                    "forecast_value": forecast_high,
+                    "strike_price": threshold,
+                    "std_dev_used": std_dev,
+                    "market_price": None,
+                },
             )
 
         # Calculate edge
@@ -140,6 +169,10 @@ class DailyHighTempStrategy(Strategy):
             market_price=market_price,
             transaction_cost=self.transaction_cost,
         )
+
+        # Check if edge is insufficient
+        if edge < self.min_edge * 100:  # Convert min_edge to cents
+            reasons.append(ReasonCode.INSUFFICIENT_EDGE)
 
         # Make decision
         if edge >= self.min_edge * 100:  # Convert min_edge to cents
@@ -158,7 +191,6 @@ class DailyHighTempStrategy(Strategy):
             decision = "HOLD"
             side = None
             max_price = None
-            reasons.append(ReasonCode.INSUFFICIENT_EDGE)
 
         signal = Signal(
             ticker=market.ticker,
@@ -170,9 +202,9 @@ class DailyHighTempStrategy(Strategy):
             max_price=max_price,
             reasons=reasons,
             features={
-                "forecast_high": forecast_high,
-                "threshold": threshold,
-                "std_dev": std_dev,
+                "forecast_value": forecast_high,
+                "strike_price": threshold,
+                "std_dev_used": std_dev,
                 "market_price": market_price,
             },
         )
