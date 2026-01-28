@@ -30,6 +30,12 @@ from src.shared.api.response_models import (
     OrderbookLevel,
     Position,
 )
+from src.shared.api.weather_cache import (
+    CachedWeather,
+    WeatherCache,
+    get_weather,
+    get_weather_cache,
+)
 
 __all__ = [
     "NWSClient",
@@ -60,4 +66,8 @@ __all__ = [
     "Position",
     "Fill",
     "Balance",
+    "WeatherCache",
+    "CachedWeather",
+    "get_weather_cache",
+    "get_weather",
 ]
