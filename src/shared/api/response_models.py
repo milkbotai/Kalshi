@@ -22,18 +22,18 @@ class ForecastPeriod(BaseModel):
 
     number: int = Field(..., description="Period number")
     name: str = Field(..., description="Period name (e.g., 'Tonight')")
-    start_time: datetime = Field(..., description="Period start time")
-    end_time: datetime = Field(..., description="Period end time")
-    is_daytime: bool = Field(..., description="Whether period is daytime")
+    start_time: datetime = Field(..., alias="startTime", description="Period start time")
+    end_time: datetime = Field(..., alias="endTime", description="Period end time")
+    is_daytime: bool = Field(..., alias="isDaytime", description="Whether period is daytime")
     temperature: int = Field(..., description="Temperature in Fahrenheit")
-    temperature_unit: str = Field(default="F", description="Temperature unit")
-    temperature_trend: str | None = Field(None, description="Temperature trend")
-    wind_speed: str = Field(..., description="Wind speed description")
-    wind_direction: str = Field(..., description="Wind direction")
-    short_forecast: str = Field(..., description="Short forecast description")
-    detailed_forecast: str = Field(..., description="Detailed forecast description")
+    temperature_unit: str = Field(default="F", alias="temperatureUnit", description="Temperature unit")
+    temperature_trend: str | None = Field(None, alias="temperatureTrend", description="Temperature trend")
+    wind_speed: str = Field(..., alias="windSpeed", description="Wind speed description")
+    wind_direction: str = Field(..., alias="windDirection", description="Wind direction")
+    short_forecast: str = Field(..., alias="shortForecast", description="Short forecast description")
+    detailed_forecast: str = Field(..., alias="detailedForecast", description="Detailed forecast description")
     probability_of_precipitation: dict[str, Any] | None = Field(
-        None, description="Precipitation probability"
+        None, alias="probabilityOfPrecipitation", description="Precipitation probability"
     )
 
     model_config = ConfigDict(populate_by_name=True)
@@ -62,22 +62,27 @@ class Observation(BaseModel):
     """
 
     timestamp: datetime = Field(..., description="Observation timestamp")
-    text_description: str | None = Field(None, description="Text description")
+    text_description: str | None = Field(None, alias="textDescription", description="Text description")
     temperature: float | None = Field(None, description="Temperature in Celsius")
     dewpoint: float | None = Field(None, description="Dewpoint in Celsius")
-    wind_direction: int | None = Field(None, description="Wind direction in degrees")
-    wind_speed: float | None = Field(None, description="Wind speed in km/h")
-    wind_gust: float | None = Field(None, description="Wind gust in km/h")
-    barometric_pressure: float | None = Field(None, description="Pressure in Pa")
-    sea_level_pressure: float | None = Field(None, description="Sea level pressure in Pa")
+    wind_direction: int | None = Field(None, alias="windDirection", description="Wind direction in degrees")
+    wind_speed: float | None = Field(None, alias="windSpeed", description="Wind speed in km/h")
+    wind_gust: float | None = Field(None, alias="windGust", description="Wind gust in km/h")
+    barometric_pressure: float | None = Field(None, alias="barometricPressure", description="Pressure in Pa")
+    sea_level_pressure: float | None = Field(None, alias="seaLevelPressure", description="Sea level pressure in Pa")
     visibility: float | None = Field(None, description="Visibility in meters")
-    relative_humidity: float | None = Field(None, description="Relative humidity %")
-    heat_index: float | None = Field(None, description="Heat index in Celsius")
-    wind_chill: float | None = Field(None, description="Wind chill in Celsius")
+    relative_humidity: float | None = Field(None, alias="relativeHumidity", description="Relative humidity %")
+    heat_index: float | None = Field(None, alias="heatIndex", description="Heat index in Celsius")
+    wind_chill: float | None = Field(None, alias="windChill", description="Wind chill in Celsius")
 
-    @field_validator("temperature", "dewpoint", "heat_index", "wind_chill", mode="before")
+    @field_validator(
+        "temperature", "dewpoint", "heat_index", "wind_chill",
+        "visibility", "wind_speed", "wind_gust", "barometric_pressure",
+        "sea_level_pressure", "relative_humidity", "wind_direction",
+        mode="before"
+    )
     @classmethod
-    def extract_value(cls, v: Any) -> float | None:
+    def extract_value(cls, v: Any) -> float | int | None:
         """Extract value from NWS value object.
 
         NWS returns values as {"value": 20.5, "unitCode": "wmoUnit:degC"}.
@@ -85,8 +90,8 @@ class Observation(BaseModel):
         if v is None:
             return None
         if isinstance(v, dict):
-            return cast(float | None, v.get("value"))
-        result: float | None = v if isinstance(v, (int, float)) else None
+            return v.get("value")
+        result = v if isinstance(v, (int, float)) else None
         return result
 
     model_config = ConfigDict(populate_by_name=True)

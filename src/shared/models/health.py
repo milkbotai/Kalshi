@@ -13,7 +13,7 @@ from src.shared.models.base import Base, TimestampMixin
 
 class HealthStatus(Base, TimestampMixin):
     """System health status model.
-    
+
     Tracks health of individual system components for monitoring and alerting.
     """
 
@@ -59,7 +59,7 @@ class HealthStatus(Base, TimestampMixin):
     @property
     def is_healthy(self) -> bool:
         """Check if component is healthy.
-        
+
         Returns:
             True if status is OK
         """
@@ -68,7 +68,7 @@ class HealthStatus(Base, TimestampMixin):
     @property
     def downtime_seconds(self) -> float:
         """Calculate downtime in seconds.
-        
+
         Returns:
             Seconds since last OK status
         """

@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 
 class Position(Base, TimestampMixin):
     """Trading position model.
-    
+
     Tracks open positions in markets including quantity, entry price,
     and current P&L.
     """
@@ -37,15 +37,9 @@ class Position(Base, TimestampMixin):
     )
 
     # Position details
-    ticker: Mapped[str] = mapped_column(
-        String(50), nullable=False, index=True, doc="Market ticker"
-    )
-    side: Mapped[str] = mapped_column(
-        String(10), nullable=False, doc="Position side (yes/no)"
-    )
-    quantity: Mapped[int] = mapped_column(
-        Integer, nullable=False, doc="Number of contracts held"
-    )
+    ticker: Mapped[str] = mapped_column(String(50), nullable=False, index=True, doc="Market ticker")
+    side: Mapped[str] = mapped_column(String(10), nullable=False, doc="Position side (yes/no)")
+    quantity: Mapped[int] = mapped_column(Integer, nullable=False, doc="Number of contracts held")
 
     # Entry pricing
     entry_price: Mapped[float] = mapped_column(
@@ -96,7 +90,7 @@ class Position(Base, TimestampMixin):
 
     def update_pnl(self, current_price: float) -> None:
         """Update unrealized P&L based on current market price.
-        
+
         Args:
             current_price: Current market price in cents
         """
@@ -108,7 +102,7 @@ class Position(Base, TimestampMixin):
 
     def close_position(self, settlement_price: float, closed_at: datetime) -> None:
         """Close the position and calculate realized P&L.
-        
+
         Args:
             settlement_price: Final settlement price in cents
             closed_at: Timestamp when position was closed

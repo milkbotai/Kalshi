@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 
 class Order(Base, TimestampMixin):
     """Trading order model.
-    
+
     Tracks orders submitted to Kalshi including status, fills, and execution details.
     """
 
@@ -39,15 +39,11 @@ class Order(Base, TimestampMixin):
     order_id: Mapped[Optional[str]] = mapped_column(
         String(100), unique=True, nullable=True, index=True, doc="Kalshi order ID"
     )
-    ticker: Mapped[str] = mapped_column(
-        String(50), nullable=False, index=True, doc="Market ticker"
-    )
+    ticker: Mapped[str] = mapped_column(String(50), nullable=False, index=True, doc="Market ticker")
 
     # Order details
     side: Mapped[str] = mapped_column(String(10), nullable=False, doc="Order side (yes/no)")
-    action: Mapped[str] = mapped_column(
-        String(10), nullable=False, doc="Order action (buy/sell)"
-    )
+    action: Mapped[str] = mapped_column(String(10), nullable=False, doc="Order action (buy/sell)")
     order_type: Mapped[str] = mapped_column(
         String(20), nullable=False, doc="Order type (limit/market)"
     )
@@ -114,7 +110,7 @@ class Order(Base, TimestampMixin):
     @property
     def is_filled(self) -> bool:
         """Check if order is fully filled.
-        
+
         Returns:
             True if order is completely filled
         """
@@ -123,7 +119,7 @@ class Order(Base, TimestampMixin):
     @property
     def fill_rate(self) -> float:
         """Calculate fill rate as percentage.
-        
+
         Returns:
             Fill rate from 0.0 to 1.0
         """
@@ -131,11 +127,9 @@ class Order(Base, TimestampMixin):
             return 0.0
         return self.filled_quantity / self.quantity
 
-    def update_fill(
-        self, filled_quantity: int, average_price: float, filled_at: datetime
-    ) -> None:
+    def update_fill(self, filled_quantity: int, average_price: float, filled_at: datetime) -> None:
         """Update order with fill information.
-        
+
         Args:
             filled_quantity: Total quantity filled
             average_price: Average fill price in cents

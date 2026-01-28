@@ -470,9 +470,7 @@ class TestKalshiClient:
 
     @patch("requests.Session.request")
     @patch.object(KalshiClient, "_ensure_authenticated")
-    def test_get_fills_with_timestamps(
-        self, mock_auth: MagicMock, mock_request: MagicMock
-    ) -> None:
+    def test_get_fills_with_timestamps(self, mock_auth: MagicMock, mock_request: MagicMock) -> None:
         """Test fetching fills with min and max timestamp filters."""
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -497,7 +495,7 @@ class TestKalshiClient:
         )
 
         assert len(fills) == 1
-        
+
         # Verify timestamp parameters were passed
         call_args = mock_request.call_args
         assert call_args[1]["params"]["min_ts"] == 1706184000000

@@ -15,7 +15,7 @@ from src.shared.models.base import Base, TimestampMixin
 
 class WeatherSnapshot(Base, TimestampMixin):
     """Weather data snapshot model.
-    
+
     Stores forecast and observation data from NWS and other sources.
     Used as input for trading strategies.
     """
@@ -77,7 +77,7 @@ class WeatherSnapshot(Base, TimestampMixin):
     @property
     def is_stale(self) -> bool:
         """Check if weather data is stale (>15 minutes old).
-        
+
         Returns:
             True if data is stale
         """
@@ -89,7 +89,7 @@ class WeatherSnapshot(Base, TimestampMixin):
     @property
     def has_forecast(self) -> bool:
         """Check if forecast data is available.
-        
+
         Returns:
             True if NWS forecast data exists
         """

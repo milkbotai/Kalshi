@@ -26,7 +26,7 @@ class TestCityConfig:
             nws_grid_x=32,
             nws_grid_y=34,
         )
-        
+
         assert config.code == "NYC"
         assert config.name == "New York City"
         assert config.lat == 40.7128
@@ -71,14 +71,14 @@ class TestCityConfigLoader:
     def test_loader_raises_if_file_not_found(self, tmp_path: Path) -> None:
         """Test that loader raises FileNotFoundError if config file missing."""
         loader = CityConfigLoader(config_path=tmp_path / "nonexistent.json")
-        
+
         with pytest.raises(FileNotFoundError):
             loader.load()
 
     def test_loader_validates_required_cities(self, tmp_path: Path) -> None:
         """Test that loader validates all required cities are present."""
         config_file = tmp_path / "cities.json"
-        
+
         # Create config with only one city (missing others)
         config_data = {
             "NYC": {
@@ -94,21 +94,21 @@ class TestCityConfigLoader:
                 "nws_grid_y": 34,
             }
         }
-        
+
         with open(config_file, "w") as f:
             json.dump(config_data, f)
-        
+
         loader = CityConfigLoader(config_path=config_file)
-        
+
         with pytest.raises(ValueError) as exc_info:
             loader.load()
-        
+
         assert "Missing city configurations" in str(exc_info.value)
 
     def test_loader_loads_valid_config(self, tmp_path: Path) -> None:
         """Test that loader successfully loads valid configuration."""
         config_file = tmp_path / "cities.json"
-        
+
         # Create complete config for all cities
         config_data = {
             code: {
@@ -125,13 +125,13 @@ class TestCityConfigLoader:
             }
             for code in CITY_CODES
         }
-        
+
         with open(config_file, "w") as f:
             json.dump(config_data, f)
-        
+
         loader = CityConfigLoader(config_path=config_file)
         cities = loader.load()
-        
+
         assert len(cities) == len(CITY_CODES)
         assert all(code in cities for code in CITY_CODES)
         assert all(isinstance(city, CityConfig) for city in cities.values())
@@ -139,7 +139,7 @@ class TestCityConfigLoader:
     def test_get_city_returns_config(self, tmp_path: Path) -> None:
         """Test that get_city returns the correct city configuration."""
         config_file = tmp_path / "cities.json"
-        
+
         config_data = {
             code: {
                 "code": code,
@@ -155,20 +155,20 @@ class TestCityConfigLoader:
             }
             for code in CITY_CODES
         }
-        
+
         with open(config_file, "w") as f:
             json.dump(config_data, f)
-        
+
         loader = CityConfigLoader(config_path=config_file)
         city = loader.get_city("NYC")
-        
+
         assert city.code == "NYC"
         assert city.name == "City NYC"
 
     def test_get_city_raises_for_invalid_code(self, tmp_path: Path) -> None:
         """Test that get_city raises KeyError for invalid city code."""
         config_file = tmp_path / "cities.json"
-        
+
         config_data = {
             code: {
                 "code": code,
@@ -184,11 +184,11 @@ class TestCityConfigLoader:
             }
             for code in CITY_CODES
         }
-        
+
         with open(config_file, "w") as f:
             json.dump(config_data, f)
-        
+
         loader = CityConfigLoader(config_path=config_file)
-        
+
         with pytest.raises(KeyError):
             loader.get_city("INVALID")

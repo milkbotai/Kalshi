@@ -59,7 +59,11 @@ class RiskEvent(Base, TimestampMixin):
 
     # Resolution
     resolved: Mapped[bool] = mapped_column(
-        Boolean, default=False, nullable=False, server_default=text("false"), doc="Whether event has been resolved"
+        Boolean,
+        default=False,
+        nullable=False,
+        server_default=text("false"),
+        doc="Whether event has been resolved",
     )
 
     resolved_at: Mapped[datetime | None] = mapped_column(

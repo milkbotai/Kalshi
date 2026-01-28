@@ -9,7 +9,6 @@ from typing import Any
 from sqlalchemy import DateTime, MetaData
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
-
 # Naming convention for constraints
 NAMING_CONVENTION = {
     "ix": "ix_%(column_0_label)s",
@@ -24,7 +23,7 @@ metadata = MetaData(naming_convention=NAMING_CONVENTION)
 
 class Base(DeclarativeBase):
     """Base class for all SQLAlchemy models.
-    
+
     Provides metadata with naming conventions for constraints.
     """
 
@@ -33,7 +32,7 @@ class Base(DeclarativeBase):
 
 class TimestampMixin:
     """Mixin that adds created_at and updated_at timestamp columns.
-    
+
     Automatically manages timestamps for record creation and updates.
     """
 
@@ -55,7 +54,7 @@ class TimestampMixin:
 
 def utcnow() -> datetime:
     """Get current UTC timestamp.
-    
+
     Returns:
         Current datetime in UTC timezone
     """

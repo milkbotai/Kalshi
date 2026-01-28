@@ -15,7 +15,7 @@ from src.shared.constants import CITY_CODES
 
 class CityConfig(BaseModel):
     """Configuration for a single city.
-    
+
     Contains all metadata needed for weather forecasting and trading
     including NWS grid coordinates and settlement stations.
     """
@@ -40,7 +40,7 @@ class CityConfigLoader:
 
     def __init__(self, config_path: Path | None = None) -> None:
         """Initialize city config loader.
-        
+
         Args:
             config_path: Path to cities.json file. If None, uses default location.
         """
@@ -51,10 +51,10 @@ class CityConfigLoader:
 
     def load(self) -> dict[str, CityConfig]:
         """Load city configurations from JSON file.
-        
+
         Returns:
             Dictionary mapping city codes to CityConfig objects
-            
+
         Raises:
             FileNotFoundError: If config file doesn't exist
             ValueError: If config is invalid or missing required cities
@@ -71,21 +71,19 @@ class CityConfigLoader:
             raise ValueError(f"Missing city configurations: {missing_cities}")
 
         # Parse and validate each city config
-        self._cities = {
-            code: CityConfig(**city_data) for code, city_data in data.items()
-        }
+        self._cities = {code: CityConfig(**city_data) for code, city_data in data.items()}
 
         return self._cities
 
     def get_city(self, code: str) -> CityConfig:
         """Get configuration for a specific city.
-        
+
         Args:
             code: 3-letter city code
-            
+
         Returns:
             CityConfig for the requested city
-            
+
         Raises:
             KeyError: If city code is not found
         """
@@ -95,7 +93,7 @@ class CityConfigLoader:
 
     def get_all_cities(self) -> dict[str, CityConfig]:
         """Get all city configurations.
-        
+
         Returns:
             Dictionary of all city configs
         """

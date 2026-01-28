@@ -58,9 +58,7 @@ class TestDatabaseManager:
                 mock_session = MagicMock()
                 mock_sessionmaker.return_value = MagicMock(return_value=mock_session)
 
-                db_manager = DatabaseManager(
-                    database_url="postgresql://test:test@localhost/test"
-                )
+                db_manager = DatabaseManager(database_url="postgresql://test:test@localhost/test")
 
                 with db_manager.session() as session:
                     assert session == mock_session
@@ -78,9 +76,7 @@ class TestDatabaseManager:
                 mock_session = MagicMock()
                 mock_sessionmaker.return_value = MagicMock(return_value=mock_session)
 
-                db_manager = DatabaseManager(
-                    database_url="postgresql://test:test@localhost/test"
-                )
+                db_manager = DatabaseManager(database_url="postgresql://test:test@localhost/test")
 
                 with pytest.raises(ValueError):
                     with db_manager.session():

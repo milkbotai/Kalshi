@@ -22,7 +22,7 @@ def add_correlation_id(logger: Any, method_name: str, event_dict: EventDict) -> 
 
 def configure_logging() -> None:
     """Configure structured logging for the application.
-    
+
     Sets up structlog with appropriate processors based on environment:
     - Production: JSON output with timestamps
     - Development: Console output with colors
@@ -67,10 +67,10 @@ def configure_logging() -> None:
 
 def get_logger(name: str) -> Any:
     """Get a configured logger instance.
-    
+
     Args:
         name: Logger name (typically __name__ of the module)
-        
+
     Returns:
         Configured structlog logger
     """

@@ -14,7 +14,7 @@ from src.shared.models.base import Base, TimestampMixin
 
 class Market(Base, TimestampMixin):
     """Kalshi market model.
-    
+
     Stores market data including ticker, pricing, volume, and settlement information.
     Updated periodically from Kalshi API.
     """
@@ -110,7 +110,7 @@ class Market(Base, TimestampMixin):
     @property
     def spread_bps(self) -> Optional[int]:
         """Calculate bid-ask spread in basis points.
-        
+
         Returns:
             Spread in basis points, or None if pricing unavailable
         """
@@ -121,7 +121,7 @@ class Market(Base, TimestampMixin):
     @property
     def mid_price(self) -> Optional[float]:
         """Calculate mid price between bid and ask.
-        
+
         Returns:
             Mid price in cents, or None if pricing unavailable
         """

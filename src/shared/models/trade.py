@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
 class Trade(Base, TimestampMixin):
     """Trade execution model.
-    
+
     Records individual trade executions with pricing and P&L tracking.
     """
 
@@ -47,15 +47,11 @@ class Trade(Base, TimestampMixin):
     trade_id: Mapped[Optional[str]] = mapped_column(
         String(100), unique=True, nullable=True, index=True, doc="Kalshi trade ID"
     )
-    ticker: Mapped[str] = mapped_column(
-        String(50), nullable=False, index=True, doc="Market ticker"
-    )
+    ticker: Mapped[str] = mapped_column(String(50), nullable=False, index=True, doc="Market ticker")
 
     # Trade details
     side: Mapped[str] = mapped_column(String(10), nullable=False, doc="Trade side (yes/no)")
-    action: Mapped[str] = mapped_column(
-        String(10), nullable=False, doc="Trade action (buy/sell)"
-    )
+    action: Mapped[str] = mapped_column(String(10), nullable=False, doc="Trade action (buy/sell)")
     quantity: Mapped[int] = mapped_column(Integer, nullable=False, doc="Quantity traded")
     price: Mapped[float] = mapped_column(Float, nullable=False, doc="Execution price in cents")
 
@@ -99,7 +95,7 @@ class Trade(Base, TimestampMixin):
     @property
     def notional_value(self) -> float:
         """Calculate notional value of trade.
-        
+
         Returns:
             Notional value in cents
         """
@@ -107,10 +103,10 @@ class Trade(Base, TimestampMixin):
 
     def calculate_pnl(self, exit_price: float) -> float:
         """Calculate P&L for closing this trade.
-        
+
         Args:
             exit_price: Exit price in cents
-            
+
         Returns:
             Profit or loss in cents
         """

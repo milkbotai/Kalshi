@@ -218,14 +218,25 @@ class TestSignalGenerator:
         assert score < 0.6
 
     def test_calculate_confidence_score_missing_weather_data(
-        self, generator: SignalGenerator, sample_market: Market
+        self, generator: SignalGenerator
     ) -> None:
         """Test confidence score with missing weather data."""
+        # Use a low-quality market to isolate weather data impact
+        market = Market(
+            ticker="TEST-01",
+            event_ticker="TEST",
+            title="Test",
+            yes_bid=40,
+            yes_ask=50,  # Wide spread (10 cents)
+            volume=10,
+            open_interest=50,  # Low liquidity
+            status="closed",  # Not open
+        )
         weather = {}  # No data
 
-        score = generator.calculate_confidence_score(weather, sample_market)
+        score = generator.calculate_confidence_score(weather, market)
 
-        # Should have lower score due to missing data
+        # Should have low score due to poor market + missing weather data
         assert score < 0.5
 
     def test_combine_signals_consensus_yes(self, generator: SignalGenerator) -> None:

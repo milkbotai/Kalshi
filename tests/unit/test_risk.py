@@ -29,9 +29,7 @@ class TestRiskCalculator:
 
     def test_calculate_open_risk_single_position(self, calculator: RiskCalculator) -> None:
         """Test calculating open risk with single position."""
-        positions = [
-            {"ticker": "TEST-01", "quantity": 100, "entry_price": 45.0}
-        ]
+        positions = [{"ticker": "TEST-01", "quantity": 100, "entry_price": 45.0}]
 
         risk = calculator.calculate_open_risk(positions)
 
@@ -56,9 +54,7 @@ class TestRiskCalculator:
 
     def test_check_city_exposure_within_limit(self, calculator: RiskCalculator) -> None:
         """Test city exposure check passes when within limit."""
-        existing_positions = [
-            {"city_code": "NYC", "quantity": 100, "entry_price": 45.0}
-        ]
+        existing_positions = [{"city_code": "NYC", "quantity": 100, "entry_price": 45.0}]
 
         # Current exposure: $45, new trade: $50, total: $95 < $150 limit
         allowed = calculator.check_city_exposure("NYC", 50.0, existing_positions)
@@ -67,9 +63,7 @@ class TestRiskCalculator:
 
     def test_check_city_exposure_exceeds_limit(self, calculator: RiskCalculator) -> None:
         """Test city exposure check fails when exceeding limit."""
-        existing_positions = [
-            {"city_code": "NYC", "quantity": 200, "entry_price": 50.0}
-        ]
+        existing_positions = [{"city_code": "NYC", "quantity": 200, "entry_price": 50.0}]
 
         # Current exposure: $100, new trade: $100, total: $200 > $150 limit
         allowed = calculator.check_city_exposure("NYC", 100.0, existing_positions)
@@ -90,9 +84,7 @@ class TestRiskCalculator:
 
     def test_check_cluster_exposure_within_limit(self, calculator: RiskCalculator) -> None:
         """Test cluster exposure check passes when within limit."""
-        existing_positions = [
-            {"cluster": "NE", "quantity": 100, "entry_price": 50.0}
-        ]
+        existing_positions = [{"cluster": "NE", "quantity": 100, "entry_price": 50.0}]
 
         # Current exposure: $50, new trade: $100, total: $150 < $250 limit
         allowed = calculator.check_cluster_exposure("NE", 100.0, existing_positions)
@@ -101,18 +93,14 @@ class TestRiskCalculator:
 
     def test_check_cluster_exposure_exceeds_limit(self, calculator: RiskCalculator) -> None:
         """Test cluster exposure check fails when exceeding limit."""
-        existing_positions = [
-            {"cluster": "NE", "quantity": 300, "entry_price": 50.0}
-        ]
+        existing_positions = [{"cluster": "NE", "quantity": 300, "entry_price": 50.0}]
 
         # Current exposure: $150, new trade: $150, total: $300 > $250 limit
         allowed = calculator.check_cluster_exposure("NE", 150.0, existing_positions)
 
         assert allowed is False
 
-    def test_check_cluster_exposure_different_clusters(
-        self, calculator: RiskCalculator
-    ) -> None:
+    def test_check_cluster_exposure_different_clusters(self, calculator: RiskCalculator) -> None:
         """Test cluster exposure only counts positions for same cluster."""
         existing_positions = [
             {"cluster": "NE", "quantity": 100, "entry_price": 50.0},

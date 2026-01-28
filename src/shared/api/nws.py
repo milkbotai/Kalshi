@@ -99,10 +99,10 @@ class NWSClient:
 
             except requests.HTTPError as e:
                 status_code = e.response.status_code if e.response else None
-                
+
                 # Retry on server errors (5xx) and rate limiting (429)
                 if status_code in [429, 500, 502, 503, 504] and attempt < max_retries - 1:
-                    backoff_time = 2 ** attempt  # Exponential backoff: 1s, 2s, 4s
+                    backoff_time = 2**attempt  # Exponential backoff: 1s, 2s, 4s
                     logger.warning(
                         "nws_request_retry",
                         url=url,
@@ -112,7 +112,7 @@ class NWSClient:
                     )
                     time.sleep(backoff_time)
                     continue
-                
+
                 # Final attempt or non-retryable error
                 logger.error(
                     "nws_request_failed",
@@ -121,7 +121,7 @@ class NWSClient:
                     error=str(e),
                 )
                 raise
-                
+
             except requests.RequestException as e:
                 logger.error("nws_request_error", url=url, error=str(e))
                 raise

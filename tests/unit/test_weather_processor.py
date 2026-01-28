@@ -63,9 +63,7 @@ class TestWeatherProcessor:
         """Test WeatherProcessor initializes correctly."""
         assert processor is not None
 
-    def test_parse_forecast(
-        self, processor: WeatherProcessor, sample_forecast: Forecast
-    ) -> None:
+    def test_parse_forecast(self, processor: WeatherProcessor, sample_forecast: Forecast) -> None:
         """Test parsing forecast into normalized dictionary."""
         result = processor.parse_forecast(sample_forecast)
 
@@ -73,7 +71,7 @@ class TestWeatherProcessor:
         assert "generated_at" in result
         assert "periods" in result
         assert len(result["periods"]) == 1
-        
+
         period = result["periods"][0]
         assert period["number"] == 1
         assert period["name"] == "Tonight"
@@ -85,7 +83,7 @@ class TestWeatherProcessor:
     ) -> None:
         """Test forecast parsing extracts precipitation probability."""
         result = processor.parse_forecast(sample_forecast)
-        
+
         period = result["periods"][0]
         assert "precipitation_probability" in period
         assert period["precipitation_probability"] == 0.20
@@ -112,18 +110,16 @@ class TestWeatherProcessor:
         assert result["temperature_f"] is not None
         assert 68.0 <= result["temperature_f"] <= 69.0
 
-    def test_parse_observation_handles_null_temperature(
-        self, processor: WeatherProcessor
-    ) -> None:
+    def test_parse_observation_handles_null_temperature(self, processor: WeatherProcessor) -> None:
         """Test observation parsing handles null temperature."""
         obs = Observation(
             timestamp=datetime.now(timezone.utc),
             temperature=None,
             dewpoint=None,
         )
-        
+
         result = processor.parse_observation(obs)
-        
+
         assert result["temperature_f"] is None
         assert result["dewpoint_f"] is None
 
@@ -183,9 +179,7 @@ class TestWeatherProcessor:
             result = processor.extract_precipitation_probability(text)
             assert result == expected, f"Failed for: {text}"
 
-    def test_extract_precipitation_probability_none(
-        self, processor: WeatherProcessor
-    ) -> None:
+    def test_extract_precipitation_probability_none(self, processor: WeatherProcessor) -> None:
         """Test extracting precipitation probability when none mentioned."""
         text = "Clear skies with sunshine"
         result = processor.extract_precipitation_probability(text)

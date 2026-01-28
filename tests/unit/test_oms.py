@@ -339,16 +339,19 @@ class TestOrderManagementSystem:
             kalshi_order_id="order_123",
         )
 
-        # Old fill (before cutoff)
+        # Old fill (before cutoff) - use naive datetime for proper Z suffix formatting
         old_time = datetime.now(timezone.utc) - timedelta(hours=2)
         since_timestamp = datetime.now(timezone.utc) - timedelta(hours=1)
+
+        # Format as ISO without timezone info, then add Z suffix (simulating Kalshi API format)
+        old_time_str = old_time.replace(tzinfo=None).isoformat() + "Z"
 
         fills = [
             {
                 "order_id": "order_123",
                 "count": 50,
                 "yes_price": 45,
-                "created_time": old_time.isoformat() + "Z",
+                "created_time": old_time_str,
             }
         ]
 
