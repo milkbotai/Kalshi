@@ -44,3 +44,8 @@ DB_CONNECTION_TIMEOUT_SECONDS: Final[int] = 5
 # Logging
 LOG_RETENTION_DAYS: Final[int] = 30
 LOG_LEVEL_DEFAULT: Final[str] = "INFO"
+
+# Public disclosure settings (per DEFINITIONS.md)
+PUBLIC_TRADE_DELAY_MIN: Final[int] = 60  # 60-minute delay before trades are public
+DASH_REFRESH_SEC: Final[int] = 5  # Dashboard refresh interval
+WEATHER_CACHE_MIN: Final[int] = 5  # Weather data cache TTL
