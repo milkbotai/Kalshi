@@ -10,11 +10,11 @@ class TestSettings:
     """Test suite for Settings configuration."""
 
     def test_settings_has_default_api_credentials(self) -> None:
-        """Test that API credentials have defaults for testing."""
+        """Test that API credentials default to None (optional)."""
         settings = Settings()
 
-        assert settings.kalshi_api_key == ""
-        assert settings.kalshi_api_secret == ""
+        assert settings.kalshi_api_key is None
+        assert settings.kalshi_api_secret is None
 
     def test_settings_has_default_database_url(self) -> None:
         """Test that database URL has a default."""

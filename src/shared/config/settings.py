@@ -4,10 +4,24 @@ Uses pydantic-settings to load and validate configuration from environment
 variables with type safety and validation.
 """
 
+from enum import Enum
 from typing import Literal
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class TradingMode(Enum):
+    """Trading mode enumeration.
+
+    SHADOW: Signals generated, no orders submitted, simulated fills
+    DEMO: Uses demo API keys and endpoints
+    LIVE: Uses production keys (requires explicit confirmation)
+    """
+
+    SHADOW = "shadow"
+    DEMO = "demo"
+    LIVE = "live"
 
 
 class Settings(BaseSettings):
@@ -30,18 +44,28 @@ class Settings(BaseSettings):
         description="Deployment environment",
     )
 
+    # Trading mode
+    trading_mode: TradingMode = Field(
+        default=TradingMode.SHADOW,
+        description="Trading mode: shadow (no trades), demo, or live",
+    )
+
     # Kalshi API
-    kalshi_api_key: str = Field(
-        default="",
+    kalshi_api_key: str | None = Field(
+        default=None,
         description="Kalshi API key for authentication",
     )
-    kalshi_api_secret: str = Field(
-        default="",
+    kalshi_api_secret: str | None = Field(
+        default=None,
         description="Kalshi API secret for authentication",
     )
     kalshi_base_url: str = Field(
         default="https://api.kalshi.com/v1",
         description="Kalshi API base URL",
+    )
+    kalshi_api_url: str = Field(
+        default="https://demo-api.kalshi.co/trade-api/v2",
+        description="Kalshi API URL (demo or production)",
     )
 
     # Database

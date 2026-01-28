@@ -5,6 +5,12 @@ from src.trader.oms import OrderManagementSystem, OrderState
 from src.trader.risk import CircuitBreaker, RiskCalculator
 from src.trader.strategies.daily_high_temp import DailyHighTempStrategy
 from src.trader.strategy import ReasonCode, Signal, Strategy
+from src.trader.trading_loop import (
+    MultiCityOrchestrator,
+    MultiCityRunResult,
+    TradingCycleResult,
+    TradingLoop,
+)
 
 __all__ = [
     "Strategy",
@@ -19,4 +25,8 @@ __all__ = [
     "CircuitBreaker",
     "OrderManagementSystem",
     "OrderState",
+    "TradingLoop",
+    "TradingCycleResult",
+    "MultiCityOrchestrator",
+    "MultiCityRunResult",
 ]
