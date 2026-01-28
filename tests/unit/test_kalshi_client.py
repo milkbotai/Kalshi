@@ -511,3 +511,218 @@ class TestKalshiClient:
 
         with pytest.raises(requests.Timeout):
             client.get_markets()
+
+
+class TestKalshiClientTyped:
+    """Test suite for typed Kalshi client methods that return Pydantic models."""
+
+    @patch("requests.Session.request")
+    @patch.object(KalshiClient, "_ensure_authenticated")
+    def test_get_markets_typed(self, mock_auth: MagicMock, mock_request: MagicMock) -> None:
+        """Test fetching markets as Pydantic models."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "markets": [
+                {
+                    "ticker": "HIGHNYC-25JAN26",
+                    "event_ticker": "HIGHNYC",
+                    "title": "Will NYC high be above 32F?",
+                    "yes_bid": 45,
+                    "yes_ask": 48,
+                    "volume": 1000,
+                    "open_interest": 500,
+                    "status": "open",
+                },
+            ]
+        }
+        mock_request.return_value = mock_response
+
+        client = KalshiClient(api_key="test", api_secret="test")
+        markets = client.get_markets_typed(series_ticker="HIGHNYC")
+
+        assert len(markets) == 1
+        assert markets[0].ticker == "HIGHNYC-25JAN26"
+        assert markets[0].yes_bid == 45
+        assert markets[0].yes_ask == 48
+        assert markets[0].spread_cents == 3
+
+    @patch("requests.Session.request")
+    @patch.object(KalshiClient, "_ensure_authenticated")
+    def test_get_market_typed(self, mock_auth: MagicMock, mock_request: MagicMock) -> None:
+        """Test fetching single market as Pydantic model."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "market": {
+                "ticker": "HIGHNYC-25JAN26",
+                "event_ticker": "HIGHNYC",
+                "title": "Will NYC high be above 32F?",
+                "yes_bid": 45,
+                "yes_ask": 48,
+                "volume": 1000,
+                "open_interest": 500,
+                "status": "open",
+            }
+        }
+        mock_request.return_value = mock_response
+
+        client = KalshiClient(api_key="test", api_secret="test")
+        market = client.get_market_typed("HIGHNYC-25JAN26")
+
+        assert market is not None
+        assert market.ticker == "HIGHNYC-25JAN26"
+        assert market.spread_cents == 3
+        assert market.mid_price == 46.5
+
+    @patch("requests.Session.request")
+    @patch.object(KalshiClient, "_ensure_authenticated")
+    def test_get_market_typed_empty_response(
+        self, mock_auth: MagicMock, mock_request: MagicMock
+    ) -> None:
+        """Test get_market_typed returns None for empty response."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"market": {}}
+        mock_request.return_value = mock_response
+
+        client = KalshiClient(api_key="test", api_secret="test")
+        market = client.get_market_typed("INVALID")
+
+        assert market is None
+
+    @patch("requests.Session.request")
+    @patch.object(KalshiClient, "_ensure_authenticated")
+    def test_get_orderbook_typed(self, mock_auth: MagicMock, mock_request: MagicMock) -> None:
+        """Test fetching orderbook as Pydantic model."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "orderbook": {
+                "yes": [
+                    {"price": 45, "count": 100},
+                    {"price": 44, "count": 200},
+                ],
+                "no": [
+                    {"price": 55, "count": 100},
+                ],
+            }
+        }
+        mock_request.return_value = mock_response
+
+        client = KalshiClient(api_key="test", api_secret="test")
+        orderbook = client.get_orderbook_typed("HIGHNYC-25JAN26")
+
+        assert len(orderbook.yes) == 2
+        assert len(orderbook.no) == 1
+        assert orderbook.yes[0].price == 45
+        assert orderbook.yes[0].quantity == 100
+        assert orderbook.best_yes_bid == 45
+
+    @patch("requests.Session.request")
+    @patch.object(KalshiClient, "_ensure_authenticated")
+    def test_get_orderbook_typed_empty(
+        self, mock_auth: MagicMock, mock_request: MagicMock
+    ) -> None:
+        """Test get_orderbook_typed returns empty orderbook for closed market."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"orderbook": {}}
+        mock_request.return_value = mock_response
+
+        client = KalshiClient(api_key="test", api_secret="test")
+        orderbook = client.get_orderbook_typed("CLOSED-MARKET")
+
+        assert len(orderbook.yes) == 0
+        assert len(orderbook.no) == 0
+        assert orderbook.best_yes_bid is None
+        assert orderbook.best_yes_ask is None
+
+    @patch("requests.Session.request")
+    @patch.object(KalshiClient, "_ensure_authenticated")
+    def test_calculate_spread(self, mock_auth: MagicMock, mock_request: MagicMock) -> None:
+        """Test spread calculation."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "market": {
+                "ticker": "HIGHNYC-25JAN26",
+                "event_ticker": "HIGHNYC",
+                "title": "Test",
+                "yes_bid": 42,
+                "yes_ask": 47,
+                "status": "open",
+            }
+        }
+        mock_request.return_value = mock_response
+
+        client = KalshiClient(api_key="test", api_secret="test")
+        spread = client.calculate_spread("HIGHNYC-25JAN26")
+
+        assert spread == 5
+
+    @patch("requests.Session.request")
+    @patch.object(KalshiClient, "_ensure_authenticated")
+    def test_calculate_spread_tight(self, mock_auth: MagicMock, mock_request: MagicMock) -> None:
+        """Test spread calculation for tight market."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "market": {
+                "ticker": "TIGHT-MARKET",
+                "event_ticker": "TIGHT",
+                "title": "Test",
+                "yes_bid": 48,
+                "yes_ask": 50,
+                "status": "open",
+            }
+        }
+        mock_request.return_value = mock_response
+
+        client = KalshiClient(api_key="test", api_secret="test")
+        spread = client.calculate_spread("TIGHT-MARKET")
+
+        # Spread of 2 cents is below the 3 cent threshold
+        assert spread == 2
+        assert spread <= 3  # Good for trading
+
+    @patch("requests.Session.request")
+    @patch.object(KalshiClient, "_ensure_authenticated")
+    def test_calculate_spread_no_pricing(
+        self, mock_auth: MagicMock, mock_request: MagicMock
+    ) -> None:
+        """Test spread calculation returns None when pricing unavailable."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "market": {
+                "ticker": "NO-PRICING",
+                "event_ticker": "TEST",
+                "title": "Test",
+                "yes_bid": None,
+                "yes_ask": None,
+                "status": "closed",
+            }
+        }
+        mock_request.return_value = mock_response
+
+        client = KalshiClient(api_key="test", api_secret="test")
+        spread = client.calculate_spread("NO-PRICING")
+
+        assert spread is None
+
+    @patch("requests.Session.request")
+    @patch.object(KalshiClient, "_ensure_authenticated")
+    def test_calculate_spread_market_not_found(
+        self, mock_auth: MagicMock, mock_request: MagicMock
+    ) -> None:
+        """Test spread calculation returns None for non-existent market."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"market": {}}
+        mock_request.return_value = mock_response
+
+        client = KalshiClient(api_key="test", api_secret="test")
+        spread = client.calculate_spread("NONEXISTENT")
+
+        assert spread is None

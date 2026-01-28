@@ -11,6 +11,7 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
+from src.shared.api.response_models import Market, Orderbook, OrderbookLevel
 from src.shared.config.logging import get_logger
 from src.shared.constants import KALSHI_RATE_LIMIT_PER_SECOND
 
@@ -455,3 +456,193 @@ class KalshiClient:
 
         data = self._make_request("GET", "/portfolio/balance")
         return cast(dict[str, Any], data.get("balance", {}))
+
+    # =========================================================================
+    # Typed Methods (Return Pydantic Models)
+    # =========================================================================
+
+    def get_markets_typed(
+        self,
+        event_ticker: str | None = None,
+        series_ticker: str | None = None,
+        status: str = "open",
+        limit: int = 100,
+    ) -> list[Market]:
+        """Get list of markets as Pydantic models.
+
+        Args:
+            event_ticker: Filter by event ticker
+            series_ticker: Filter by series ticker
+            status: Market status (open, closed, settled)
+            limit: Maximum number of results
+
+        Returns:
+            List of Market models
+
+        Example:
+            >>> client = KalshiClient(key, secret)
+            >>> markets = client.get_markets_typed(series_ticker="HIGHNYC")
+            >>> for m in markets:
+            ...     print(f"{m.ticker}: spread={m.spread_cents}c")
+        """
+        raw_markets = self.get_markets(
+            event_ticker=event_ticker,
+            series_ticker=series_ticker,
+            status=status,
+            limit=limit,
+        )
+
+        markets = []
+        for raw in raw_markets:
+            try:
+                market = Market(
+                    ticker=raw.get("ticker", ""),
+                    event_ticker=raw.get("event_ticker", ""),
+                    title=raw.get("title", ""),
+                    subtitle=raw.get("subtitle"),
+                    yes_bid=raw.get("yes_bid"),
+                    yes_ask=raw.get("yes_ask"),
+                    no_bid=raw.get("no_bid"),
+                    no_ask=raw.get("no_ask"),
+                    last_price=raw.get("last_price"),
+                    volume=raw.get("volume", 0),
+                    open_interest=raw.get("open_interest", 0),
+                    status=raw.get("status", "unknown"),
+                    close_time=raw.get("close_time"),
+                    expiration_time=raw.get("expiration_time"),
+                    result=raw.get("result"),
+                    can_close_early=raw.get("can_close_early", False),
+                    strike_price=raw.get("strike_price"),
+                )
+                markets.append(market)
+            except Exception as e:
+                logger.warning(
+                    "market_parse_error",
+                    ticker=raw.get("ticker"),
+                    error=str(e),
+                )
+
+        logger.debug("markets_parsed", count=len(markets))
+        return markets
+
+    def get_market_typed(self, ticker: str) -> Market | None:
+        """Get single market as Pydantic model.
+
+        Args:
+            ticker: Market ticker
+
+        Returns:
+            Market model, or None if not found or parse fails
+
+        Example:
+            >>> client = KalshiClient(key, secret)
+            >>> market = client.get_market_typed("HIGHNYC-25JAN26")
+            >>> if market:
+            ...     print(f"Spread: {market.spread_cents}c")
+        """
+        raw = self.get_market(ticker)
+
+        if not raw:
+            return None
+
+        try:
+            return Market(
+                ticker=raw.get("ticker", ""),
+                event_ticker=raw.get("event_ticker", ""),
+                title=raw.get("title", ""),
+                subtitle=raw.get("subtitle"),
+                yes_bid=raw.get("yes_bid"),
+                yes_ask=raw.get("yes_ask"),
+                no_bid=raw.get("no_bid"),
+                no_ask=raw.get("no_ask"),
+                last_price=raw.get("last_price"),
+                volume=raw.get("volume", 0),
+                open_interest=raw.get("open_interest", 0),
+                status=raw.get("status", "unknown"),
+                close_time=raw.get("close_time"),
+                expiration_time=raw.get("expiration_time"),
+                result=raw.get("result"),
+                can_close_early=raw.get("can_close_early", False),
+                strike_price=raw.get("strike_price"),
+            )
+        except Exception as e:
+            logger.warning("market_parse_error", ticker=ticker, error=str(e))
+            return None
+
+    def get_orderbook_typed(self, ticker: str) -> Orderbook:
+        """Get orderbook as Pydantic model.
+
+        Args:
+            ticker: Market ticker
+
+        Returns:
+            Orderbook model (empty lists if market closed/halted)
+
+        Example:
+            >>> client = KalshiClient(key, secret)
+            >>> orderbook = client.get_orderbook_typed("HIGHNYC-25JAN26")
+            >>> if orderbook.best_yes_bid:
+            ...     print(f"Best bid: {orderbook.best_yes_bid}c")
+        """
+        raw = self.get_orderbook(ticker)
+
+        # Handle empty orderbook (market closed or halted)
+        if not raw:
+            logger.debug("orderbook_empty", ticker=ticker)
+            return Orderbook(yes=[], no=[])
+
+        yes_levels = []
+        for level in raw.get("yes", []):
+            try:
+                yes_levels.append(
+                    OrderbookLevel(
+                        price=level.get("price", 0),
+                        quantity=level.get("count", 0),
+                    )
+                )
+            except Exception as e:
+                logger.warning("orderbook_level_parse_error", error=str(e))
+
+        no_levels = []
+        for level in raw.get("no", []):
+            try:
+                no_levels.append(
+                    OrderbookLevel(
+                        price=level.get("price", 0),
+                        quantity=level.get("count", 0),
+                    )
+                )
+            except Exception as e:
+                logger.warning("orderbook_level_parse_error", error=str(e))
+
+        return Orderbook(yes=yes_levels, no=no_levels)
+
+    def calculate_spread(self, ticker: str) -> int | None:
+        """Calculate bid-ask spread for a market.
+
+        Args:
+            ticker: Market ticker
+
+        Returns:
+            Spread in cents, or None if pricing unavailable
+
+        Example:
+            >>> client = KalshiClient(key, secret)
+            >>> spread = client.calculate_spread("HIGHNYC-25JAN26")
+            >>> if spread and spread <= 3:
+            ...     print("Tight spread - good for trading")
+        """
+        market = self.get_market_typed(ticker)
+
+        if market is None:
+            return None
+
+        spread = market.spread_cents
+
+        logger.debug(
+            "spread_calculated",
+            ticker=ticker,
+            spread_cents=spread,
+        )
+
+        return spread
