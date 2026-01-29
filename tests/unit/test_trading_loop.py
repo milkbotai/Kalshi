@@ -541,6 +541,7 @@ class TestTradingLoopErrorHandling:
 
         # Mock Kalshi client that raises exception on create_order
         mock_kalshi = MagicMock()
+        # Market with tight spread (2¢), good liquidity, and good pricing for edge
         mock_kalshi.get_markets_typed.return_value = [
             Market(
                 ticker="HIGHNYC-25JAN26-T42",
@@ -548,22 +549,22 @@ class TestTradingLoopErrorHandling:
                 title="Test",
                 status="open",
                 yes_bid=30,
-                yes_ask=35,
-                volume=1000,
-                open_interest=5000,
+                yes_ask=32,  # Tight 2¢ spread (passes gate)
+                volume=10000,  # High volume
+                open_interest=50000,  # High open interest (passes liquidity gate)
                 strike_price=42.0,
             )
         ]
         mock_kalshi.create_order.side_effect = Exception("API connection failed")
 
-        # Mock strategy that returns BUY signal
+        # Mock strategy that returns BUY signal with strong edge
         mock_strategy = MagicMock()
         mock_strategy.name = "test"
         mock_strategy.evaluate.return_value = Signal(
             ticker="HIGHNYC-25JAN26-T42",
             p_yes=0.7,
-            uncertainty=0.1,
-            edge=5.0,
+            uncertainty=0.05,  # Low uncertainty
+            edge=15.0,  # Strong edge (passes edge gate)
             decision="BUY",
             side="yes",
             max_price=65.0,
@@ -663,6 +664,7 @@ class TestTradingLoopErrorHandling:
         mock_oms.update_order_status.side_effect = Exception("Database error")
 
         mock_kalshi = MagicMock()
+        # Market with tight spread (2¢), good liquidity, and good pricing for edge
         mock_kalshi.get_markets_typed.return_value = [
             Market(
                 ticker="HIGHNYC-25JAN26-T42",
@@ -670,9 +672,9 @@ class TestTradingLoopErrorHandling:
                 title="Test",
                 status="open",
                 yes_bid=30,
-                yes_ask=35,
-                volume=1000,
-                open_interest=5000,
+                yes_ask=32,  # Tight 2¢ spread (passes gate)
+                volume=10000,  # High volume
+                open_interest=50000,  # High open interest (passes liquidity gate)
                 strike_price=42.0,
             )
         ]
@@ -683,8 +685,8 @@ class TestTradingLoopErrorHandling:
         mock_strategy.evaluate.return_value = Signal(
             ticker="HIGHNYC-25JAN26-T42",
             p_yes=0.7,
-            uncertainty=0.1,
-            edge=5.0,
+            uncertainty=0.05,  # Low uncertainty
+            edge=15.0,  # Strong edge (passes edge gate)
             decision="BUY",
             side="yes",
             max_price=65.0,
