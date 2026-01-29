@@ -547,3 +547,34 @@ class TestDailyHighTempStrategy:
         assert "threshold" in signal.features
         assert "std_dev" in signal.features
         assert "market_price" in signal.features
+
+    def test_evaluate_buy_no_side_when_forecast_below_threshold(
+        self, strategy: DailyHighTempStrategy
+    ) -> None:
+        """Test BUY NO decision when forecast well below threshold."""
+        market = Market(
+            ticker="TEST-01",
+            event_ticker="TEST",
+            title="Test",
+            yes_bid=60,
+            yes_ask=65,  # Market pricing YES high
+            volume=1000,
+            open_interest=5000,
+            status="open",
+            strike_price=32.0,
+        )
+        weather = {
+            "temperature": 15.0,  # Well below threshold (32°F)
+            "forecast_std_dev": 2.0,  # Low uncertainty
+        }
+
+        signal = strategy.evaluate(weather, market)
+
+        # Should generate BUY signal for NO side
+        assert signal.decision == "BUY"
+        assert signal.side == "no"
+        assert signal.p_yes > 0.5  # High probability temp will NOT exceed threshold
+        assert signal.max_price is not None
+        # max_price should be (1 - p_yes) * 100 - transaction_cost
+        expected_max = (1 - signal.p_yes) * 100 - strategy.transaction_cost
+        assert abs(signal.max_price - expected_max) < 0.01
