@@ -55,7 +55,7 @@ class TestDailyHighTempStrategy:
         signal = strategy.evaluate(weather, sample_market)
 
         assert signal.ticker == "HIGHNYC-25JAN26"
-        assert signal.p_yes < 0.5  # High temp likely to exceed threshold
+        assert signal.p_yes > 0.5  # High temp likely to exceed threshold
         assert signal.decision in ["BUY", "HOLD"]
         assert signal.features is not None
         assert signal.features["forecast_high"] == 42.0
@@ -72,7 +72,7 @@ class TestDailyHighTempStrategy:
 
         signal = strategy.evaluate(weather, sample_market)
 
-        assert signal.p_yes > 0.5  # High temp unlikely to exceed threshold
+        assert signal.p_yes < 0.5  # High temp unlikely to exceed threshold
         assert signal.decision in ["BUY", "HOLD"]
 
     def test_evaluate_high_uncertainty_returns_hold(

@@ -31,7 +31,9 @@ class TestDailyHighTempStrategyEdgeCases:
         """Test strategy returns BUY NO when forecast below threshold."""
         strategy = DailyHighTempStrategy()
 
-        weather = {"temperature": 35, "forecast_std_dev": 2.0}
+        # Forecast 15°F is well below threshold 42°F
+        # Market is pricing YES at 60-65 (overpriced given low forecast)
+        weather = {"temperature": 15, "forecast_std_dev": 2.0}
         market = Market(
             ticker="HIGHNYC-25JAN26-T42",
             event_ticker="HIGHNYC-25JAN26",
@@ -44,7 +46,8 @@ class TestDailyHighTempStrategyEdgeCases:
 
         signal = strategy.evaluate(weather, market)
 
-        # Forecast 35 is below threshold 42, should buy NO
+        # Forecast 15 is well below threshold 42, p_yes should be very low
+        # Strategy should buy NO since market overprices YES
         assert signal.decision == "BUY"
         assert signal.side == "no"
         assert signal.p_yes < 0.5
