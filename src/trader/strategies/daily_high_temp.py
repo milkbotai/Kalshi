@@ -181,13 +181,16 @@ class DailyHighTempStrategy(Strategy):
             )
 
         # No blocking reasons: make BUY decision based on edge
-        # If p_yes > 0.5, we believe temp will exceed threshold -> buy YES
-        # If p_yes < 0.5, we believe temp will NOT exceed threshold -> buy NO
+        # p_yes = probability that high temp >= threshold
+        # If p_yes > 0.5: likely to exceed → buy YES
+        # If p_yes < 0.5: unlikely to exceed → buy NO
         if p_yes > 0.5:
+            # Forecast above threshold - buy YES
             decision = "BUY"
             side = "yes"
             max_price = p_yes * 100 - self.transaction_cost
         else:
+            # Forecast below threshold - buy NO
             decision = "BUY"
             side = "no"
             max_price = (1 - p_yes) * 100 - self.transaction_cost

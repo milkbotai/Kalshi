@@ -573,7 +573,8 @@ class TestDailyHighTempStrategy:
         # Should generate BUY signal for NO side
         assert signal.decision == "BUY"
         assert signal.side == "no"
-        assert signal.p_yes < 0.5  # Low probability temp will exceed threshold (so buy NO)
+        # When forecast (15°F) is well below threshold (32°F), p_yes should be very low
+        assert signal.p_yes < 0.5, f"Expected p_yes < 0.5 when forecast below threshold, got {signal.p_yes}"
         assert signal.max_price is not None
         # max_price should be (1 - p_yes) * 100 - transaction_cost
         expected_max = (1 - signal.p_yes) * 100 - strategy.transaction_cost
