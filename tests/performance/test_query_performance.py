@@ -21,7 +21,7 @@ class TestQueryPerformance:
     def engine(self) -> Engine:
         """Get database engine."""
         db_manager = DatabaseManager()
-        return db_manager.get_engine()
+        return db_manager.engine
 
     def test_city_metrics_query_performance(self, engine: Engine) -> None:
         """Test city metrics query performance."""
@@ -156,7 +156,7 @@ class TestCachePerformance:
         from src.shared.db.connection import DatabaseManager
 
         db_manager = DatabaseManager()
-        engine = db_manager.get_engine()
+        engine = db_manager.engine
         api = AnalyticsAPI(engine)
 
         # First call (cache miss)

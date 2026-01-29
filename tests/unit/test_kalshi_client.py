@@ -513,6 +513,195 @@ class TestKalshiClient:
             client.get_markets()
 
 
+class TestKalshiClientRetryLogic:
+    """Test suite for retry logic and error handling."""
+
+    @patch("requests.Session.request")
+    @patch.object(KalshiClient, "_ensure_authenticated")
+    def test_all_retries_exhausted(self, mock_auth: MagicMock, mock_request: MagicMock) -> None:
+        """Test behavior when all retries are exhausted."""
+        mock_response = MagicMock()
+        mock_response.status_code = 503
+
+        http_error = requests.HTTPError()
+        http_error.response = mock_response
+        mock_response.raise_for_status.side_effect = http_error
+
+        # All requests fail
+        mock_request.return_value = mock_response
+
+        with patch("src.shared.api.kalshi.time.sleep"):
+            client = KalshiClient(api_key="test", api_secret="test")
+
+            with pytest.raises(requests.HTTPError):
+                client.get_markets()
+
+            # Should have tried 3 times
+            assert mock_request.call_count == 3
+
+    @patch("requests.Session.request")
+    @patch("requests.Session.post")
+    def test_token_refresh_on_multiple_401s(
+        self, mock_post: MagicMock, mock_request: MagicMock
+    ) -> None:
+        """Test token refresh behavior on repeated 401 errors."""
+        mock_response_401 = MagicMock()
+        mock_response_401.status_code = 401
+
+        http_error = requests.HTTPError()
+        http_error.response = mock_response_401
+        mock_response_401.raise_for_status.side_effect = http_error
+
+        # All requests return 401
+        mock_request.return_value = mock_response_401
+
+        # Auth succeeds
+        mock_auth_response = MagicMock()
+        mock_auth_response.status_code = 200
+        mock_auth_response.json.return_value = {"token": "new_token"}
+        mock_post.return_value = mock_auth_response
+
+        client = KalshiClient(api_key="test", api_secret="test")
+        client._access_token = "old_token"
+
+        with pytest.raises(requests.HTTPError):
+            client.get_markets()
+
+    @patch("requests.Session.request")
+    @patch.object(KalshiClient, "_ensure_authenticated")
+    def test_rate_limit_429_response(
+        self, mock_auth: MagicMock, mock_request: MagicMock
+    ) -> None:
+        """Test handling of 429 rate limit response."""
+        mock_response_429 = MagicMock()
+        mock_response_429.status_code = 429
+
+        http_error = requests.HTTPError()
+        http_error.response = mock_response_429
+        mock_response_429.raise_for_status.side_effect = http_error
+
+        mock_response_success = MagicMock()
+        mock_response_success.status_code = 200
+        mock_response_success.json.return_value = {"markets": []}
+
+        # First call rate limited, second succeeds
+        mock_request.side_effect = [mock_response_429, mock_response_success]
+
+        with patch("src.shared.api.kalshi.time.sleep") as mock_sleep:
+            client = KalshiClient(api_key="test", api_secret="test")
+            markets = client.get_markets()
+
+            assert markets == []
+            # Should have slept for backoff
+            mock_sleep.assert_called()
+
+    @patch("requests.Session.request")
+    @patch.object(KalshiClient, "_ensure_authenticated")
+    def test_empty_markets_response(
+        self, mock_auth: MagicMock, mock_request: MagicMock
+    ) -> None:
+        """Test handling of empty markets response."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {}  # No "markets" key
+
+        mock_request.return_value = mock_response
+
+        client = KalshiClient(api_key="test", api_secret="test")
+        markets = client.get_markets()
+
+        assert markets == []
+
+    @patch("requests.Session.request")
+    @patch.object(KalshiClient, "_ensure_authenticated")
+    def test_null_response_handling(
+        self, mock_auth: MagicMock, mock_request: MagicMock
+    ) -> None:
+        """Test handling of null/None values in response."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"markets": None}
+
+        mock_request.return_value = mock_response
+
+        client = KalshiClient(api_key="test", api_secret="test")
+        markets = client.get_markets()
+
+        # Should handle None gracefully
+        assert markets is None or markets == []
+
+    @patch("requests.Session.request")
+    @patch.object(KalshiClient, "_ensure_authenticated")
+    def test_get_positions_empty(
+        self, mock_auth: MagicMock, mock_request: MagicMock
+    ) -> None:
+        """Test get_positions with empty response."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"positions": []}
+
+        mock_request.return_value = mock_response
+
+        client = KalshiClient(api_key="test", api_secret="test")
+        positions = client.get_positions()
+
+        assert positions == []
+
+    @patch("requests.Session.request")
+    @patch.object(KalshiClient, "_ensure_authenticated")
+    def test_get_fills_empty(
+        self, mock_auth: MagicMock, mock_request: MagicMock
+    ) -> None:
+        """Test get_fills with empty response."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"fills": []}
+
+        mock_request.return_value = mock_response
+
+        client = KalshiClient(api_key="test", api_secret="test")
+        fills = client.get_fills()
+
+        assert fills == []
+
+    @patch("requests.Session.request")
+    @patch.object(KalshiClient, "_ensure_authenticated")
+    def test_cancel_order_not_found(
+        self, mock_auth: MagicMock, mock_request: MagicMock
+    ) -> None:
+        """Test cancel_order when order not found."""
+        mock_response = MagicMock()
+        mock_response.status_code = 404
+
+        http_error = requests.HTTPError()
+        http_error.response = mock_response
+        mock_response.raise_for_status.side_effect = http_error
+
+        mock_request.return_value = mock_response
+
+        client = KalshiClient(api_key="test", api_secret="test")
+
+        with pytest.raises(requests.HTTPError):
+            client.cancel_order("nonexistent_order")
+
+    @patch("requests.Session.request")
+    @patch.object(KalshiClient, "_ensure_authenticated")
+    def test_get_orders_empty(
+        self, mock_auth: MagicMock, mock_request: MagicMock
+    ) -> None:
+        """Test get_orders with empty response."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"orders": []}
+
+        mock_request.return_value = mock_response
+
+        client = KalshiClient(api_key="test", api_secret="test")
+        orders = client.get_orders()
+
+        assert orders == []
+
+
 class TestKalshiClientTyped:
     """Test suite for typed Kalshi client methods that return Pydantic models."""
 

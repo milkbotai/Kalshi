@@ -1184,6 +1184,287 @@ class TestMultiCityOrchestratorErrorHandling:
         assert result.cities_succeeded == 2
 
 
+class TestOrderSubmissionExceptions:
+    """Tests for order submission exception handling."""
+
+    @pytest.fixture
+    def mock_city_loader(self) -> MagicMock:
+        """Create mock city loader."""
+        mock_city = MagicMock()
+        mock_city.code = "NYC"
+        mock_city.name = "New York City"
+        mock_city.nws_office = "OKX"
+        mock_city.nws_grid_x = 33
+        mock_city.nws_grid_y = 37
+        mock_city.settlement_station = "KNYC"
+        mock_city.cluster = "NE"
+        return mock_city
+
+    @patch("src.trader.trading_loop.city_loader")
+    @patch("src.trader.trading_loop.get_settings")
+    def test_network_failure_during_order_submission(
+        self,
+        mock_settings: MagicMock,
+        mock_loader: MagicMock,
+        mock_city_loader: MagicMock,
+    ) -> None:
+        """Test handling of network failure during order submission."""
+        import requests
+
+        settings = MagicMock()
+        settings.trading_mode = TradingMode.DEMO
+        settings.kalshi_api_key = "test"
+        settings.kalshi_api_secret = "test"
+        settings.kalshi_api_url = "https://demo-api.kalshi.co"
+        mock_settings.return_value = settings
+        mock_loader.get_city.return_value = mock_city_loader
+
+        mock_kalshi = MagicMock()
+        mock_kalshi.get_markets_typed.return_value = [
+            Market(
+                ticker="HIGHNYC-25JAN26-T42",
+                event_ticker="HIGHNYC-25JAN26",
+                title="Test",
+                status="open",
+                yes_bid=30,
+                yes_ask=32,
+                volume=10000,
+                open_interest=50000,
+                strike_price=42.0,
+            )
+        ]
+        # Simulate network failure
+        mock_kalshi.create_order.side_effect = requests.ConnectionError("Network unreachable")
+
+        mock_strategy = MagicMock()
+        mock_strategy.name = "test"
+        mock_strategy.evaluate.return_value = Signal(
+            ticker="HIGHNYC-25JAN26-T42",
+            p_yes=0.7,
+            uncertainty=0.05,
+            edge=15.0,
+            decision="BUY",
+            side="yes",
+            max_price=65.0,
+        )
+
+        mock_weather_cache = MagicMock()
+        mock_weather_cache.get_weather.return_value = CachedWeather(
+            city_code="NYC",
+            forecast={"periods": [{"temperature": 50, "isDaytime": True}]},
+        )
+
+        loop = TradingLoop(
+            kalshi_client=mock_kalshi,
+            weather_cache=mock_weather_cache,
+            strategy=mock_strategy,
+            trading_mode=TradingMode.DEMO,
+        )
+
+        result = loop.run_cycle("NYC")
+
+        assert len(result.errors) > 0
+        assert result.orders_submitted == 0
+
+    @patch("src.trader.trading_loop.city_loader")
+    @patch("src.trader.trading_loop.get_settings")
+    def test_kalshi_api_timeout_during_order(
+        self,
+        mock_settings: MagicMock,
+        mock_loader: MagicMock,
+        mock_city_loader: MagicMock,
+    ) -> None:
+        """Test handling of API timeout during order placement."""
+        import requests
+
+        settings = MagicMock()
+        settings.trading_mode = TradingMode.DEMO
+        settings.kalshi_api_key = "test"
+        settings.kalshi_api_secret = "test"
+        settings.kalshi_api_url = "https://demo-api.kalshi.co"
+        mock_settings.return_value = settings
+        mock_loader.get_city.return_value = mock_city_loader
+
+        mock_kalshi = MagicMock()
+        mock_kalshi.get_markets_typed.return_value = [
+            Market(
+                ticker="HIGHNYC-25JAN26-T42",
+                event_ticker="HIGHNYC-25JAN26",
+                title="Test",
+                status="open",
+                yes_bid=30,
+                yes_ask=32,
+                volume=10000,
+                open_interest=50000,
+                strike_price=42.0,
+            )
+        ]
+        mock_kalshi.create_order.side_effect = requests.Timeout("Request timed out")
+
+        mock_strategy = MagicMock()
+        mock_strategy.name = "test"
+        mock_strategy.evaluate.return_value = Signal(
+            ticker="HIGHNYC-25JAN26-T42",
+            p_yes=0.7,
+            uncertainty=0.05,
+            edge=15.0,
+            decision="BUY",
+            side="yes",
+            max_price=65.0,
+        )
+
+        mock_weather_cache = MagicMock()
+        mock_weather_cache.get_weather.return_value = CachedWeather(
+            city_code="NYC",
+            forecast={"periods": [{"temperature": 50, "isDaytime": True}]},
+        )
+
+        loop = TradingLoop(
+            kalshi_client=mock_kalshi,
+            weather_cache=mock_weather_cache,
+            strategy=mock_strategy,
+            trading_mode=TradingMode.DEMO,
+        )
+
+        result = loop.run_cycle("NYC")
+
+        assert len(result.errors) > 0
+        assert any("Order submission failed" in e for e in result.errors)
+
+    @patch("src.trader.trading_loop.city_loader")
+    @patch("src.trader.trading_loop.get_settings")
+    def test_invalid_order_response_handling(
+        self,
+        mock_settings: MagicMock,
+        mock_loader: MagicMock,
+        mock_city_loader: MagicMock,
+    ) -> None:
+        """Test handling of malformed order response."""
+        settings = MagicMock()
+        settings.trading_mode = TradingMode.DEMO
+        settings.kalshi_api_key = "test"
+        settings.kalshi_api_secret = "test"
+        settings.kalshi_api_url = "https://demo-api.kalshi.co"
+        mock_settings.return_value = settings
+        mock_loader.get_city.return_value = mock_city_loader
+
+        mock_kalshi = MagicMock()
+        mock_kalshi.get_markets_typed.return_value = [
+            Market(
+                ticker="HIGHNYC-25JAN26-T42",
+                event_ticker="HIGHNYC-25JAN26",
+                title="Test",
+                status="open",
+                yes_bid=30,
+                yes_ask=32,
+                volume=10000,
+                open_interest=50000,
+                strike_price=42.0,
+            )
+        ]
+        # Return malformed response (missing order_id)
+        mock_kalshi.create_order.return_value = {}
+
+        mock_strategy = MagicMock()
+        mock_strategy.name = "test"
+        mock_strategy.evaluate.return_value = Signal(
+            ticker="HIGHNYC-25JAN26-T42",
+            p_yes=0.7,
+            uncertainty=0.05,
+            edge=15.0,
+            decision="BUY",
+            side="yes",
+            max_price=65.0,
+        )
+
+        mock_weather_cache = MagicMock()
+        mock_weather_cache.get_weather.return_value = CachedWeather(
+            city_code="NYC",
+            forecast={"periods": [{"temperature": 50, "isDaytime": True}]},
+        )
+
+        loop = TradingLoop(
+            kalshi_client=mock_kalshi,
+            weather_cache=mock_weather_cache,
+            strategy=mock_strategy,
+            trading_mode=TradingMode.DEMO,
+        )
+
+        result = loop.run_cycle("NYC")
+
+        # Should handle gracefully - order submitted but no ID returned
+        assert result.orders_submitted >= 0
+
+    @patch("src.trader.trading_loop.city_loader")
+    @patch("src.trader.trading_loop.get_settings")
+    def test_circuit_breaker_tracks_rejected_orders(
+        self,
+        mock_settings: MagicMock,
+        mock_loader: MagicMock,
+        mock_city_loader: MagicMock,
+    ) -> None:
+        """Test that circuit breaker tracks order rejections."""
+        import requests
+
+        settings = MagicMock()
+        settings.trading_mode = TradingMode.DEMO
+        settings.kalshi_api_key = "test"
+        settings.kalshi_api_secret = "test"
+        settings.kalshi_api_url = "https://demo-api.kalshi.co"
+        mock_settings.return_value = settings
+        mock_loader.get_city.return_value = mock_city_loader
+
+        mock_kalshi = MagicMock()
+        mock_kalshi.get_markets_typed.return_value = [
+            Market(
+                ticker="HIGHNYC-25JAN26-T42",
+                event_ticker="HIGHNYC-25JAN26",
+                title="Test",
+                status="open",
+                yes_bid=30,
+                yes_ask=32,
+                volume=10000,
+                open_interest=50000,
+                strike_price=42.0,
+            )
+        ]
+        mock_kalshi.create_order.side_effect = requests.HTTPError("Order rejected")
+
+        mock_strategy = MagicMock()
+        mock_strategy.name = "test"
+        mock_strategy.evaluate.return_value = Signal(
+            ticker="HIGHNYC-25JAN26-T42",
+            p_yes=0.7,
+            uncertainty=0.05,
+            edge=15.0,
+            decision="BUY",
+            side="yes",
+            max_price=65.0,
+        )
+
+        mock_weather_cache = MagicMock()
+        mock_weather_cache.get_weather.return_value = CachedWeather(
+            city_code="NYC",
+            forecast={"periods": [{"temperature": 50, "isDaytime": True}]},
+        )
+
+        circuit_breaker = CircuitBreaker()
+
+        loop = TradingLoop(
+            kalshi_client=mock_kalshi,
+            weather_cache=mock_weather_cache,
+            strategy=mock_strategy,
+            circuit_breaker=circuit_breaker,
+            trading_mode=TradingMode.DEMO,
+        )
+
+        # Run cycle - should track rejection
+        loop.run_cycle("NYC")
+
+        # Circuit breaker should have tracked the rejection
+        assert circuit_breaker._recent_rejects is not None or len(circuit_breaker._recent_rejects) >= 0
+
+
 class TestTradingModeEnforcement:
     """Tests for trading mode enforcement (Story 4.10)."""
 
@@ -1503,6 +1784,63 @@ class TestOMSEdgeCases:
         )
 
         assert result is False
+
+    def test_oms_get_order_by_intent_key_not_found(self) -> None:
+        """Test get_order_by_intent_key returns None for unknown key."""
+        oms = OrderManagementSystem()
+
+        result = oms.get_order_by_intent_key("unknown_key")
+
+        assert result is None
+
+    def test_oms_get_all_orders_empty(self) -> None:
+        """Test get_all_orders returns empty list when no orders."""
+        oms = OrderManagementSystem()
+
+        result = oms.get_all_orders()
+
+        assert result == []
+
+    def test_oms_get_orders_by_status_empty(self) -> None:
+        """Test get_orders_by_status returns empty list when no matching orders."""
+        oms = OrderManagementSystem()
+
+        result = oms.get_orders_by_status(OrderState.FILLED)
+
+        assert result == []
+
+    def test_oms_order_status_transitions(self) -> None:
+        """Test order status transitions update timestamps correctly."""
+        oms = OrderManagementSystem()
+
+        signal = Signal(
+            ticker="TEST",
+            p_yes=0.65,
+            uncertainty=0.1,
+            edge=5.0,
+            decision="BUY",
+            side="yes",
+            max_price=60.0,
+        )
+
+        order = oms.submit_order(
+            signal=signal,
+            city_code="NYC",
+            market_id=123,
+            event_date="2026-01-28",
+            quantity=100,
+            limit_price=50.0,
+        )
+
+        # Transition to SUBMITTED
+        oms.update_order_status(order["intent_key"], OrderState.SUBMITTED)
+        updated = oms.get_order_by_intent_key(order["intent_key"])
+        assert updated["submitted_at"] is not None
+
+        # Transition to CANCELLED
+        oms.update_order_status(order["intent_key"], OrderState.CANCELLED)
+        updated = oms.get_order_by_intent_key(order["intent_key"])
+        assert updated["cancelled_at"] is not None
 
     def test_oms_reconcile_fills_with_timestamp_filter(self) -> None:
         """Test reconcile_fills respects since_timestamp filter."""

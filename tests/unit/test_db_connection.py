@@ -125,6 +125,72 @@ class TestDatabaseManager:
             assert db_manager.engine is mock_engine
 
 
+class TestWeatherCacheEdgeCases:
+    """Tests for weather cache edge cases."""
+
+    def test_weather_cache_invalidate_nonexistent(self) -> None:
+        """Test invalidating a city that's not in cache."""
+        from src.shared.api.weather_cache import WeatherCache
+
+        with patch("src.shared.api.weather_cache.NWSClient"):
+            cache = WeatherCache()
+            result = cache.invalidate("NONEXISTENT")
+
+            assert result is False
+
+    def test_weather_cache_invalidate_all_empty(self) -> None:
+        """Test invalidating all when cache is empty."""
+        from src.shared.api.weather_cache import WeatherCache
+
+        with patch("src.shared.api.weather_cache.NWSClient"):
+            cache = WeatherCache()
+            count = cache.invalidate_all()
+
+            assert count == 0
+
+    def test_weather_cache_get_stats_empty(self) -> None:
+        """Test getting stats from empty cache."""
+        from src.shared.api.weather_cache import WeatherCache
+
+        with patch("src.shared.api.weather_cache.NWSClient"):
+            cache = WeatherCache()
+            stats = cache.get_cache_stats()
+
+            assert stats["total_entries"] == 0
+            assert stats["entries"] == {}
+
+    def test_weather_cache_prefetch_with_failures(self) -> None:
+        """Test prefetch_all_cities handles failures gracefully."""
+        from src.shared.api.weather_cache import WeatherCache
+
+        with patch("src.shared.api.weather_cache.NWSClient") as mock_nws, \
+             patch("src.shared.api.weather_cache.city_loader") as mock_loader:
+
+            mock_loader.get_all_cities.return_value = {"NYC": {}, "LAX": {}}
+            mock_loader.get_city.side_effect = KeyError("City not found")
+
+            cache = WeatherCache(nws_client=mock_nws.return_value)
+            results = cache.prefetch_all_cities()
+
+            # All should fail
+            assert all(v is False for v in results.values())
+
+    def test_cached_weather_age_calculation(self) -> None:
+        """Test CachedWeather age calculation."""
+        from datetime import timedelta
+        from src.shared.api.weather_cache import CachedWeather
+
+        old_time = datetime.now(timezone.utc) - timedelta(minutes=10)
+        cached = CachedWeather(
+            city_code="NYC",
+            forecast={"test": "data"},
+            fetched_at=old_time,
+        )
+
+        assert cached.age_minutes() >= 10.0
+        assert cached.age_seconds() >= 600.0
+
+
 class TestGetDb:
     """Tests for get_db singleton function."""
 
