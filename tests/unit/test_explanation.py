@@ -158,7 +158,7 @@ class TestExplanationGenerator:
 
         explanation = generator.generate(sample_signal, sample_weather, sample_market)
 
-        assert "45°F" in explanation.weather_summary
+        assert "45.0°F" in explanation.weather_summary
         assert "20%" in explanation.weather_summary  # precipitation
 
     def test_generate_with_market_summary(
@@ -179,7 +179,7 @@ class TestExplanationGenerator:
 
         explanation = generator.generate(sample_signal, sample_weather, sample_market)
 
-        assert "42°F" in explanation.market_summary
+        assert "42.0°F" in explanation.market_summary
         assert "55/58¢" in explanation.market_summary
 
     def test_generate_fallback_on_error(
