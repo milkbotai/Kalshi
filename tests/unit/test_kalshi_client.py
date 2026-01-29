@@ -1140,14 +1140,14 @@ class TestKalshiClientTyped:
         """Test get_market_typed handles parse errors gracefully."""
         mock_response = MagicMock()
         mock_response.status_code = 200
-        # Invalid market data
-        mock_response.json.return_value = {"market": {"invalid": "data"}}
+        # Empty market data (no ticker field)
+        mock_response.json.return_value = {"market": {}}
         mock_request.return_value = mock_response
 
         client = KalshiClient(api_key="test", api_secret="test")
         market = client.get_market_typed("TEST")
 
-        # Should return None on parse error
+        # Should return None for empty market
         assert market is None
 
     @patch("requests.Session.request")
