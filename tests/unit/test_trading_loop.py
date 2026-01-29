@@ -507,6 +507,567 @@ class TestTradingLoopRiskChecks:
         assert allowed is False
 
 
+class TestTradingLoopErrorHandling:
+    """Tests for error handling in trading loop."""
+
+    @pytest.fixture
+    def mock_city_loader(self) -> MagicMock:
+        """Create mock city loader."""
+        mock_city = MagicMock()
+        mock_city.code = "NYC"
+        mock_city.name = "New York City"
+        mock_city.nws_office = "OKX"
+        mock_city.nws_grid_x = 33
+        mock_city.nws_grid_y = 37
+        mock_city.settlement_station = "KNYC"
+        mock_city.cluster = "NE"
+        return mock_city
+
+    @patch("src.trader.trading_loop.city_loader")
+    @patch("src.trader.trading_loop.get_settings")
+    def test_order_submission_exception_handling(
+        self,
+        mock_settings: MagicMock,
+        mock_loader: MagicMock,
+        mock_city_loader: MagicMock,
+    ) -> None:
+        """Test that order submission exceptions are caught and logged."""
+        settings = MagicMock()
+        settings.trading_mode = TradingMode.DEMO
+        settings.kalshi_api_key = "test"
+        settings.kalshi_api_secret = "test"
+        mock_settings.return_value = settings
+        mock_loader.get_city.return_value = mock_city_loader
+
+        # Mock Kalshi client that raises exception on create_order
+        mock_kalshi = MagicMock()
+        mock_kalshi.get_markets_typed.return_value = [
+            Market(
+                ticker="HIGHNYC-25JAN26-T42",
+                event_ticker="HIGHNYC-25JAN26",
+                title="Test",
+                status="open",
+                yes_bid=30,
+                yes_ask=35,
+                volume=1000,
+                open_interest=5000,
+                strike_price=42.0,
+            )
+        ]
+        mock_kalshi.create_order.side_effect = Exception("API connection failed")
+
+        # Mock strategy that returns BUY signal
+        mock_strategy = MagicMock()
+        mock_strategy.name = "test"
+        mock_strategy.evaluate.return_value = Signal(
+            ticker="HIGHNYC-25JAN26-T42",
+            p_yes=0.7,
+            uncertainty=0.1,
+            edge=5.0,
+            decision="BUY",
+            side="yes",
+            max_price=65.0,
+        )
+
+        mock_weather_cache = MagicMock()
+        mock_weather_cache.get_weather.return_value = CachedWeather(
+            city_code="NYC",
+            forecast={"periods": [{"temperature": 50, "isDaytime": True}]},
+        )
+
+        loop = TradingLoop(
+            kalshi_client=mock_kalshi,
+            weather_cache=mock_weather_cache,
+            strategy=mock_strategy,
+            trading_mode=TradingMode.DEMO,
+        )
+
+        result = loop.run_cycle("NYC")
+
+        # Should have error but not crash
+        assert len(result.errors) > 0
+        assert any("Order submission failed" in e for e in result.errors)
+        assert result.orders_submitted == 0
+
+    @patch("src.trader.trading_loop.city_loader")
+    @patch("src.trader.trading_loop.get_settings")
+    def test_strategy_evaluation_exception_handling(
+        self,
+        mock_settings: MagicMock,
+        mock_loader: MagicMock,
+        mock_city_loader: MagicMock,
+    ) -> None:
+        """Test that strategy evaluation exceptions are caught."""
+        settings = MagicMock()
+        settings.trading_mode = TradingMode.DEMO
+        settings.kalshi_api_key = "test"
+        settings.kalshi_api_secret = "test"
+        mock_settings.return_value = settings
+        mock_loader.get_city.return_value = mock_city_loader
+
+        mock_kalshi = MagicMock()
+        mock_kalshi.get_markets_typed.return_value = [
+            Market(
+                ticker="HIGHNYC-25JAN26-T42",
+                event_ticker="HIGHNYC-25JAN26",
+                title="Test",
+                status="open",
+                strike_price=42.0,
+            )
+        ]
+
+        # Strategy that raises exception
+        mock_strategy = MagicMock()
+        mock_strategy.name = "test"
+        mock_strategy.evaluate.side_effect = Exception("Strategy calculation error")
+
+        mock_weather_cache = MagicMock()
+        mock_weather_cache.get_weather.return_value = CachedWeather(
+            city_code="NYC",
+            forecast={"periods": [{"temperature": 50, "isDaytime": True}]},
+        )
+
+        loop = TradingLoop(
+            kalshi_client=mock_kalshi,
+            weather_cache=mock_weather_cache,
+            strategy=mock_strategy,
+            trading_mode=TradingMode.DEMO,
+        )
+
+        result = loop.run_cycle("NYC")
+
+        # Should have error for strategy evaluation
+        assert len(result.errors) > 0
+        assert any("Strategy evaluation failed" in e for e in result.errors)
+        assert result.signals_generated == 0
+
+    @patch("src.trader.trading_loop.city_loader")
+    @patch("src.trader.trading_loop.get_settings")
+    def test_oms_update_failure_handling(
+        self,
+        mock_settings: MagicMock,
+        mock_loader: MagicMock,
+        mock_city_loader: MagicMock,
+    ) -> None:
+        """Test handling of OMS update failures."""
+        settings = MagicMock()
+        settings.trading_mode = TradingMode.DEMO
+        settings.kalshi_api_key = "test"
+        settings.kalshi_api_secret = "test"
+        mock_settings.return_value = settings
+        mock_loader.get_city.return_value = mock_city_loader
+
+        # Mock OMS that fails on update
+        mock_oms = MagicMock()
+        mock_oms.submit_order.return_value = {"intent_key": "test_key"}
+        mock_oms.update_order_status.side_effect = Exception("Database error")
+
+        mock_kalshi = MagicMock()
+        mock_kalshi.get_markets_typed.return_value = [
+            Market(
+                ticker="HIGHNYC-25JAN26-T42",
+                event_ticker="HIGHNYC-25JAN26",
+                title="Test",
+                status="open",
+                yes_bid=30,
+                yes_ask=35,
+                volume=1000,
+                open_interest=5000,
+                strike_price=42.0,
+            )
+        ]
+        mock_kalshi.create_order.return_value = {"order_id": "kalshi_123"}
+
+        mock_strategy = MagicMock()
+        mock_strategy.name = "test"
+        mock_strategy.evaluate.return_value = Signal(
+            ticker="HIGHNYC-25JAN26-T42",
+            p_yes=0.7,
+            uncertainty=0.1,
+            edge=5.0,
+            decision="BUY",
+            side="yes",
+            max_price=65.0,
+        )
+
+        mock_weather_cache = MagicMock()
+        mock_weather_cache.get_weather.return_value = CachedWeather(
+            city_code="NYC",
+            forecast={"periods": [{"temperature": 50, "isDaytime": True}]},
+        )
+
+        loop = TradingLoop(
+            kalshi_client=mock_kalshi,
+            weather_cache=mock_weather_cache,
+            strategy=mock_strategy,
+            oms=mock_oms,
+            trading_mode=TradingMode.DEMO,
+        )
+
+        result = loop.run_cycle("NYC")
+
+        # Should have error from OMS update failure
+        assert len(result.errors) > 0
+
+    @patch("src.trader.trading_loop.city_loader")
+    @patch("src.trader.trading_loop.get_settings")
+    def test_build_weather_data_with_missing_periods(
+        self,
+        mock_settings: MagicMock,
+        mock_loader: MagicMock,
+    ) -> None:
+        """Test _build_weather_data handles missing periods gracefully."""
+        settings = MagicMock()
+        settings.trading_mode = TradingMode.SHADOW
+        mock_settings.return_value = settings
+
+        mock_city = MagicMock()
+        mock_city.code = "NYC"
+
+        loop = TradingLoop(trading_mode=TradingMode.SHADOW)
+
+        # Empty forecast
+        forecast = {"periods": []}
+        weather_data = loop._build_weather_data(forecast, mock_city)
+
+        assert weather_data["city_code"] == "NYC"
+        assert weather_data["temperature"] is None
+
+    @patch("src.trader.trading_loop.city_loader")
+    @patch("src.trader.trading_loop.get_settings")
+    def test_build_weather_data_with_nighttime_only(
+        self,
+        mock_settings: MagicMock,
+        mock_loader: MagicMock,
+    ) -> None:
+        """Test _build_weather_data handles nighttime-only periods."""
+        settings = MagicMock()
+        settings.trading_mode = TradingMode.SHADOW
+        mock_settings.return_value = settings
+
+        mock_city = MagicMock()
+        mock_city.code = "NYC"
+
+        loop = TradingLoop(trading_mode=TradingMode.SHADOW)
+
+        # Only nighttime periods
+        forecast = {
+            "periods": [
+                {"name": "Tonight", "temperature": 35, "isDaytime": False},
+                {"name": "Tomorrow Night", "temperature": 32, "isDaytime": False},
+            ]
+        }
+        weather_data = loop._build_weather_data(forecast, mock_city)
+
+        # Should not find daytime temperature
+        assert weather_data["temperature"] is None
+
+    @patch("src.trader.trading_loop.city_loader")
+    @patch("src.trader.trading_loop.get_settings")
+    def test_submit_order_with_none_max_price(
+        self,
+        mock_settings: MagicMock,
+        mock_loader: MagicMock,
+    ) -> None:
+        """Test _submit_order handles None max_price."""
+        settings = MagicMock()
+        settings.trading_mode = TradingMode.SHADOW
+        mock_settings.return_value = settings
+
+        mock_city = MagicMock()
+        mock_city.code = "NYC"
+
+        loop = TradingLoop(trading_mode=TradingMode.SHADOW)
+
+        signal = Signal(
+            ticker="TEST",
+            p_yes=0.65,
+            uncertainty=0.1,
+            edge=5.0,
+            decision="BUY",
+            side="yes",
+            max_price=None,  # None max_price
+        )
+
+        market = Market(
+            ticker="TEST",
+            event_ticker="TEST",
+            title="Test",
+            status="open",
+            strike_price=40.0,
+        )
+
+        order = loop._submit_order(signal, mock_city, market, 100)
+
+        # Should default to 50 cents
+        assert order is not None
+
+
+class TestMultiCityOrchestratorErrorHandling:
+    """Tests for error handling in multi-city orchestrator."""
+
+    @pytest.fixture
+    def mock_trading_loop(self) -> MagicMock:
+        """Create mock trading loop."""
+        loop = MagicMock(spec=TradingLoop)
+        loop.trading_mode = TradingMode.SHADOW
+        loop.oms = MagicMock()
+        loop.oms.get_orders_by_status.return_value = []
+        loop.circuit_breaker = MagicMock()
+        loop.circuit_breaker.is_paused = False
+        loop.weather_cache = MagicMock()
+        return loop
+
+    @patch("src.trader.trading_loop.city_loader")
+    def test_prefetch_weather_with_all_failures(
+        self,
+        mock_loader: MagicMock,
+        mock_trading_loop: MagicMock,
+    ) -> None:
+        """Test prefetch_weather when all cities fail."""
+        def mock_get_weather(city_code: str, force_refresh: bool = False) -> MagicMock:
+            raise Exception(f"Weather API error for {city_code}")
+
+        mock_trading_loop.weather_cache.get_weather.side_effect = mock_get_weather
+
+        orchestrator = MultiCityOrchestrator(
+            trading_loop=mock_trading_loop,
+            city_codes=["NYC", "LAX", "CHI"],
+            trading_mode=TradingMode.SHADOW,
+        )
+
+        results = orchestrator.prefetch_weather()
+
+        # All should fail
+        assert all(v is False for v in results.values())
+        assert len(results) == 3
+
+    @patch("src.trader.trading_loop.city_loader")
+    def test_run_all_cities_with_exception_in_cycle(
+        self,
+        mock_loader: MagicMock,
+        mock_trading_loop: MagicMock,
+    ) -> None:
+        """Test run_all_cities handles exceptions in individual cycles."""
+        call_count = [0]
+
+        def mock_run_cycle(city_code: str, quantity: int = 100) -> TradingCycleResult:
+            call_count[0] += 1
+            if city_code == "LAX":
+                raise RuntimeError("Unexpected error in LAX cycle")
+            return TradingCycleResult(
+                city_code=city_code,
+                started_at=datetime.now(timezone.utc),
+                completed_at=datetime.now(timezone.utc),
+                weather_fetched=True,
+                markets_fetched=5,
+                signals_generated=5,
+                gates_passed=2,
+                orders_submitted=1,
+            )
+
+        mock_trading_loop.run_cycle.side_effect = mock_run_cycle
+
+        orchestrator = MultiCityOrchestrator(
+            trading_loop=mock_trading_loop,
+            city_codes=["NYC", "LAX", "CHI"],
+            trading_mode=TradingMode.SHADOW,
+        )
+
+        result = orchestrator.run_all_cities(prefetch_weather=False)
+
+        # Should have results for all cities
+        assert len(result.city_results) == 3
+        assert result.cities_succeeded == 2
+        assert result.cities_failed == 1
+
+        # LAX should have error
+        lax_result = result.city_results["LAX"]
+        assert not lax_result.success
+        assert len(lax_result.errors) > 0
+        assert "Unexpected error" in lax_result.errors[0]
+
+    @patch("src.trader.trading_loop.city_loader")
+    def test_check_aggregate_risk_with_high_exposure(
+        self,
+        mock_loader: MagicMock,
+        mock_trading_loop: MagicMock,
+    ) -> None:
+        """Test _check_aggregate_risk blocks when exposure too high."""
+        # Mock high exposure from many pending orders
+        large_orders = [
+            {"quantity": 1000, "limit_price": 50}  # $500 each
+            for _ in range(150)  # Total $75,000 exposure
+        ]
+
+        mock_trading_loop.oms.get_orders_by_status.side_effect = lambda status: (
+            large_orders if status in ["pending", "resting"] else []
+        )
+
+        orchestrator = MultiCityOrchestrator(
+            trading_loop=mock_trading_loop,
+            city_codes=["NYC"],
+            trading_mode=TradingMode.SHADOW,
+        )
+
+        # Should block due to high exposure
+        allowed = orchestrator._check_aggregate_risk()
+        assert allowed is False
+
+    @patch("src.trader.trading_loop.city_loader")
+    def test_check_aggregate_risk_with_low_exposure(
+        self,
+        mock_loader: MagicMock,
+        mock_trading_loop: MagicMock,
+    ) -> None:
+        """Test _check_aggregate_risk allows low exposure."""
+        # Mock low exposure
+        small_orders = [
+            {"quantity": 100, "limit_price": 50}  # $50 each
+            for _ in range(10)  # Total $500 exposure
+        ]
+
+        mock_trading_loop.oms.get_orders_by_status.side_effect = lambda status: (
+            small_orders if status in ["pending", "resting"] else []
+        )
+
+        orchestrator = MultiCityOrchestrator(
+            trading_loop=mock_trading_loop,
+            city_codes=["NYC"],
+            trading_mode=TradingMode.SHADOW,
+        )
+
+        # Should allow
+        allowed = orchestrator._check_aggregate_risk()
+        assert allowed is True
+
+    @patch("src.trader.trading_loop.city_loader")
+    def test_get_run_summary_with_mixed_results(
+        self,
+        mock_loader: MagicMock,
+        mock_trading_loop: MagicMock,
+    ) -> None:
+        """Test get_run_summary with mixed success/failure results."""
+        orchestrator = MultiCityOrchestrator(
+            trading_loop=mock_trading_loop,
+            city_codes=["NYC", "LAX"],
+            trading_mode=TradingMode.SHADOW,
+        )
+
+        # Create mixed results
+        started = datetime.now(timezone.utc)
+        completed = datetime.now(timezone.utc)
+
+        result = MultiCityRunResult(
+            started_at=started,
+            completed_at=completed,
+            city_results={
+                "NYC": TradingCycleResult(
+                    city_code="NYC",
+                    started_at=started,
+                    completed_at=completed,
+                    weather_fetched=True,
+                    markets_fetched=5,
+                    signals_generated=5,
+                    gates_passed=2,
+                    orders_submitted=1,
+                ),
+                "LAX": TradingCycleResult(
+                    city_code="LAX",
+                    started_at=started,
+                    completed_at=completed,
+                    weather_fetched=False,
+                    markets_fetched=0,
+                    signals_generated=0,
+                    gates_passed=0,
+                    orders_submitted=0,
+                    errors=["Weather fetch failed"],
+                ),
+            },
+            cities_succeeded=1,
+            cities_failed=1,
+            total_orders_submitted=1,
+        )
+
+        summary = orchestrator.get_run_summary(result)
+
+        assert summary["cities_total"] == 2
+        assert summary["cities_succeeded"] == 1
+        assert summary["cities_failed"] == 1
+        assert summary["trading_mode"] == "shadow"
+        assert "NYC" in summary["per_city"]
+        assert "LAX" in summary["per_city"]
+        assert summary["per_city"]["NYC"]["success"] is True
+        assert summary["per_city"]["LAX"]["success"] is False
+        assert len(summary["per_city"]["LAX"]["errors"]) > 0
+
+    @patch("src.trader.trading_loop.city_loader")
+    def test_prefetch_weather_with_timeout(
+        self,
+        mock_loader: MagicMock,
+        mock_trading_loop: MagicMock,
+    ) -> None:
+        """Test prefetch_weather handles slow/timeout scenarios."""
+        import time
+
+        def slow_weather_fetch(city_code: str, force_refresh: bool = False) -> MagicMock:
+            if city_code == "LAX":
+                time.sleep(0.1)  # Simulate slow response
+            return MagicMock()
+
+        mock_trading_loop.weather_cache.get_weather.side_effect = slow_weather_fetch
+
+        orchestrator = MultiCityOrchestrator(
+            trading_loop=mock_trading_loop,
+            city_codes=["NYC", "LAX", "CHI"],
+            max_parallel_weather=3,
+            trading_mode=TradingMode.SHADOW,
+        )
+
+        start_time = time.time()
+        results = orchestrator.prefetch_weather()
+        elapsed = time.time() - start_time
+
+        # Should complete (parallel execution)
+        assert len(results) == 3
+        # Should be faster than sequential (< 0.3s for 3 cities)
+        assert elapsed < 0.3
+
+    @patch("src.trader.trading_loop.city_loader")
+    def test_run_all_cities_without_prefetch(
+        self,
+        mock_loader: MagicMock,
+        mock_trading_loop: MagicMock,
+    ) -> None:
+        """Test run_all_cities with prefetch_weather=False."""
+        def mock_run_cycle(city_code: str, quantity: int = 100) -> TradingCycleResult:
+            return TradingCycleResult(
+                city_code=city_code,
+                started_at=datetime.now(timezone.utc),
+                completed_at=datetime.now(timezone.utc),
+                weather_fetched=True,
+                markets_fetched=5,
+                signals_generated=5,
+                gates_passed=2,
+                orders_submitted=1,
+            )
+
+        mock_trading_loop.run_cycle.side_effect = mock_run_cycle
+
+        orchestrator = MultiCityOrchestrator(
+            trading_loop=mock_trading_loop,
+            city_codes=["NYC", "LAX"],
+            trading_mode=TradingMode.SHADOW,
+        )
+
+        result = orchestrator.run_all_cities(prefetch_weather=False)
+
+        # Should not call prefetch
+        mock_trading_loop.weather_cache.get_weather.assert_not_called()
+        assert result.success is True
+        assert result.cities_succeeded == 2
+
+
 class TestTradingModeEnforcement:
     """Tests for trading mode enforcement (Story 4.10)."""
 
