@@ -107,11 +107,17 @@ class DailyHighTempStrategy(Strategy):
         std_dev = weather.get("forecast_std_dev", self.default_std_dev)
 
         # Calculate probability of high >= threshold
-        p_yes = self.calculate_threshold_probability(
-            forecast_value=forecast_high,
-            threshold=threshold,
-            std_dev=std_dev,
-        )
+        # P(high >= threshold) where high ~ N(forecast_high, std_dev^2)
+        # Using error function approximation for normal CDF
+        import math
+        
+        # Z-score: how many std devs is threshold above forecast
+        z_score = (threshold - forecast_high) / std_dev
+        
+        # Approximate normal CDF using error function
+        # CDF(z) = 0.5 * (1 + erf(z / sqrt(2)))
+        # P(high >= threshold) = 1 - CDF(z_score) = 0.5 * (1 - erf(z_score / sqrt(2)))
+        p_yes = 0.5 * (1.0 - math.erf(z_score / math.sqrt(2.0)))
 
         # Calculate uncertainty (normalized std dev)
         uncertainty = min(std_dev / 10.0, 1.0)  # Normalize to 0-1
