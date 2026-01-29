@@ -148,17 +148,23 @@ class DailyHighTempStrategy(Strategy):
             )
             reasons.append(ReasonCode.HIGH_UNCERTAINTY)
 
-        # Calculate edge (if we have market price)
+        # Calculate edge for the side we would trade
+        # Edge depends on whether we're buying YES or NO
         edge = 0.0
         if market_price is not None:
-            edge = self.calculate_edge(
-                p_yes=p_yes,
-                market_price=market_price,
-                transaction_cost=self.transaction_cost,
-            )
+            if p_yes > 0.5:
+                # Would buy YES: edge = fair_value - market_price
+                # fair_value for YES = p_yes * 100
+                edge = p_yes * 100 - market_price - self.transaction_cost
+            else:
+                # Would buy NO: edge = fair_value_no - market_no_price
+                # fair_value for NO = (1 - p_yes) * 100
+                # market_no_price = 100 - market_yes_price
+                market_no_price = 100 - market_price
+                edge = (1 - p_yes) * 100 - market_no_price - self.transaction_cost
 
-            # Check if edge insufficient
-            if edge < self.min_edge * 100:  # Convert min_edge to cents
+            # Check if edge insufficient (edge is in cents, min_edge is fraction)
+            if edge < self.min_edge * 100:
                 if ReasonCode.INSUFFICIENT_EDGE not in reasons:
                     reasons.append(ReasonCode.INSUFFICIENT_EDGE)
 

@@ -557,7 +557,7 @@ class TestDailyHighTempStrategy:
             event_ticker="TEST",
             title="Test",
             yes_bid=60,
-            yes_ask=65,  # Market pricing YES high
+            yes_ask=65,  # Market pricing YES at 62.5 (mid)
             volume=1000,
             open_interest=5000,
             status="open",
@@ -570,11 +570,11 @@ class TestDailyHighTempStrategy:
 
         signal = strategy.evaluate(weather, market)
 
-        # Should generate BUY signal for NO side
-        assert signal.decision == "BUY"
-        assert signal.side == "no"
         # When forecast (15°F) is well below threshold (32°F), p_yes should be very low
         assert signal.p_yes < 0.5, f"Expected p_yes < 0.5 when forecast below threshold, got {signal.p_yes}"
+        # Should generate BUY signal for NO side (huge edge: fair NO ~100, market NO ~37.5)
+        assert signal.decision == "BUY", f"Expected BUY but got {signal.decision}, reasons: {signal.reasons}"
+        assert signal.side == "no"
         assert signal.max_price is not None
         # max_price should be (1 - p_yes) * 100 - transaction_cost
         expected_max = (1 - signal.p_yes) * 100 - strategy.transaction_cost

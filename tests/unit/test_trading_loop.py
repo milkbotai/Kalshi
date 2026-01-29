@@ -32,7 +32,9 @@ class TestDailyHighTempStrategyEdgeCases:
         strategy = DailyHighTempStrategy()
 
         # Forecast 15°F is well below threshold 42°F
-        # Market is pricing YES at 60-65 (overpriced given low forecast)
+        # Market is pricing YES at 60-65 (mid=62.5), so NO is priced at 35-40 (mid=37.5)
+        # Fair value for NO when p_yes ≈ 0 is ~100 cents
+        # Edge for NO = 100 - 37.5 - 1 (transaction) ≈ 61.5 cents (huge edge!)
         weather = {"temperature": 15, "forecast_std_dev": 2.0}
         market = Market(
             ticker="HIGHNYC-25JAN26-T42",
@@ -47,10 +49,10 @@ class TestDailyHighTempStrategyEdgeCases:
         signal = strategy.evaluate(weather, market)
 
         # Forecast 15 is well below threshold 42, p_yes should be very low
-        # Strategy should buy NO since market overprices YES
-        assert signal.decision == "BUY"
+        assert signal.p_yes < 0.5, f"Expected p_yes < 0.5, got {signal.p_yes}"
+        # Strategy should buy NO since market overprices YES (huge edge on NO side)
+        assert signal.decision == "BUY", f"Expected BUY but got {signal.decision}, reasons: {signal.reasons}"
         assert signal.side == "no"
-        assert signal.p_yes < 0.5
 
     def test_strategy_high_uncertainty_hold(self) -> None:
         """Test strategy returns HOLD when uncertainty too high."""
@@ -94,22 +96,24 @@ class TestDailyHighTempStrategyEdgeCases:
 
     def test_strategy_insufficient_edge(self) -> None:
         """Test strategy returns HOLD when edge insufficient."""
-        strategy = DailyHighTempStrategy(min_edge=0.10)  # 10% min edge
+        strategy = DailyHighTempStrategy(min_edge=0.10)  # 10% min edge = 10 cents
 
-        weather = {"temperature": 43, "forecast_std_dev": 2.0}  # Close to threshold
+        # Forecast exactly at threshold means p_yes ≈ 0.5
+        # Market priced at 50 means no edge
+        weather = {"temperature": 42, "forecast_std_dev": 2.0}  # Exactly at threshold
         market = Market(
             ticker="HIGHNYC-25JAN26-T42",
             event_ticker="HIGHNYC-25JAN26",
             title="Test",
             status="open",
-            yes_bid=50,
-            yes_ask=52,  # Market price close to fair value
+            yes_bid=49,
+            yes_ask=51,  # Mid = 50, which equals fair value when p_yes = 0.5
             strike_price=42.0,
         )
 
         signal = strategy.evaluate(weather, market)
 
-        # Edge should be small since forecast is close to threshold
+        # Edge should be ~0 since forecast equals threshold and market is fairly priced
         assert signal.decision == "HOLD"
         assert ReasonCode.INSUFFICIENT_EDGE in signal.reasons
 
