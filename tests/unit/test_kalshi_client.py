@@ -540,6 +540,77 @@ class TestKalshiClientRetryLogic:
             assert mock_request.call_count == 3
 
     @patch("requests.Session.request")
+    @patch.object(KalshiClient, "_ensure_authenticated")
+    def test_retry_on_500_error(self, mock_auth: MagicMock, mock_request: MagicMock) -> None:
+        """Test retry on 500 internal server error."""
+        mock_response_500 = MagicMock()
+        mock_response_500.status_code = 500
+
+        http_error = requests.HTTPError()
+        http_error.response = mock_response_500
+        mock_response_500.raise_for_status.side_effect = http_error
+
+        mock_response_success = MagicMock()
+        mock_response_success.status_code = 200
+        mock_response_success.json.return_value = {"markets": []}
+
+        # First fails, second succeeds
+        mock_request.side_effect = [mock_response_500, mock_response_success]
+
+        with patch("src.shared.api.kalshi.time.sleep"):
+            client = KalshiClient(api_key="test", api_secret="test")
+            markets = client.get_markets()
+
+            assert markets == []
+            assert mock_request.call_count == 2
+
+    @patch("requests.Session.request")
+    @patch.object(KalshiClient, "_ensure_authenticated")
+    def test_retry_on_502_error(self, mock_auth: MagicMock, mock_request: MagicMock) -> None:
+        """Test retry on 502 bad gateway error."""
+        mock_response_502 = MagicMock()
+        mock_response_502.status_code = 502
+
+        http_error = requests.HTTPError()
+        http_error.response = mock_response_502
+        mock_response_502.raise_for_status.side_effect = http_error
+
+        mock_response_success = MagicMock()
+        mock_response_success.status_code = 200
+        mock_response_success.json.return_value = {"markets": []}
+
+        mock_request.side_effect = [mock_response_502, mock_response_success]
+
+        with patch("src.shared.api.kalshi.time.sleep"):
+            client = KalshiClient(api_key="test", api_secret="test")
+            markets = client.get_markets()
+
+            assert markets == []
+
+    @patch("requests.Session.request")
+    @patch.object(KalshiClient, "_ensure_authenticated")
+    def test_retry_on_504_error(self, mock_auth: MagicMock, mock_request: MagicMock) -> None:
+        """Test retry on 504 gateway timeout error."""
+        mock_response_504 = MagicMock()
+        mock_response_504.status_code = 504
+
+        http_error = requests.HTTPError()
+        http_error.response = mock_response_504
+        mock_response_504.raise_for_status.side_effect = http_error
+
+        mock_response_success = MagicMock()
+        mock_response_success.status_code = 200
+        mock_response_success.json.return_value = {"markets": []}
+
+        mock_request.side_effect = [mock_response_504, mock_response_success]
+
+        with patch("src.shared.api.kalshi.time.sleep"):
+            client = KalshiClient(api_key="test", api_secret="test")
+            markets = client.get_markets()
+
+            assert markets == []
+
+    @patch("requests.Session.request")
     @patch("requests.Session.post")
     def test_token_refresh_on_multiple_401s(
         self, mock_post: MagicMock, mock_request: MagicMock
@@ -700,6 +771,128 @@ class TestKalshiClientRetryLogic:
         orders = client.get_orders()
 
         assert orders == []
+
+    @patch("requests.Session.request")
+    @patch.object(KalshiClient, "_ensure_authenticated")
+    def test_no_retry_on_400_error(
+        self, mock_auth: MagicMock, mock_request: MagicMock
+    ) -> None:
+        """Test no retry on 400 bad request error."""
+        mock_response = MagicMock()
+        mock_response.status_code = 400
+
+        http_error = requests.HTTPError()
+        http_error.response = mock_response
+        mock_response.raise_for_status.side_effect = http_error
+
+        mock_request.return_value = mock_response
+
+        client = KalshiClient(api_key="test", api_secret="test")
+
+        with pytest.raises(requests.HTTPError):
+            client.get_markets()
+
+        # Should NOT retry on 400
+        assert mock_request.call_count == 1
+
+    @patch("requests.Session.request")
+    @patch.object(KalshiClient, "_ensure_authenticated")
+    def test_get_balance_empty_response(
+        self, mock_auth: MagicMock, mock_request: MagicMock
+    ) -> None:
+        """Test get_balance with empty response."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {}  # No "balance" key
+
+        mock_request.return_value = mock_response
+
+        client = KalshiClient(api_key="test", api_secret="test")
+        balance = client.get_balance()
+
+        assert balance == {}
+
+    @patch("requests.Session.request")
+    @patch.object(KalshiClient, "_ensure_authenticated")
+    def test_create_order_with_no_price(
+        self, mock_auth: MagicMock, mock_request: MagicMock
+    ) -> None:
+        """Test create_order with no side price."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"order": {"order_id": "test_123"}}
+
+        mock_request.return_value = mock_response
+
+        client = KalshiClient(api_key="test", api_secret="test")
+        order = client.create_order(
+            ticker="TEST",
+            side="no",
+            action="buy",
+            count=10,
+            no_price=55,  # Using no_price instead of yes_price
+        )
+
+        assert order["order_id"] == "test_123"
+        call_kwargs = mock_request.call_args[1]
+        assert call_kwargs["json"]["no_price"] == 55
+
+    @patch("requests.Session.request")
+    @patch.object(KalshiClient, "_ensure_authenticated")
+    def test_get_fills_with_no_ticker(
+        self, mock_auth: MagicMock, mock_request: MagicMock
+    ) -> None:
+        """Test get_fills without ticker filter."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"fills": [{"order_id": "123"}]}
+
+        mock_request.return_value = mock_response
+
+        client = KalshiClient(api_key="test", api_secret="test")
+        fills = client.get_fills()
+
+        assert len(fills) == 1
+        # Verify no ticker param
+        call_kwargs = mock_request.call_args[1]
+        assert "ticker" not in call_kwargs.get("params", {})
+
+    @patch("requests.Session.post")
+    def test_authenticate_key_error(self, mock_post: MagicMock) -> None:
+        """Test authentication with missing token in response."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {}  # Missing "token" key
+
+        mock_post.return_value = mock_response
+
+        client = KalshiClient(api_key="test", api_secret="test")
+
+        with pytest.raises(KeyError):
+            client._authenticate()
+
+    @patch("requests.Session.post")
+    def test_authenticate_request_exception(self, mock_post: MagicMock) -> None:
+        """Test authentication with request exception."""
+        mock_post.side_effect = requests.RequestException("Connection failed")
+
+        client = KalshiClient(api_key="test", api_secret="test")
+
+        with pytest.raises(requests.RequestException):
+            client._authenticate()
+
+    @patch("requests.Session.request")
+    @patch.object(KalshiClient, "_ensure_authenticated")
+    def test_request_exception_handling(
+        self, mock_auth: MagicMock, mock_request: MagicMock
+    ) -> None:
+        """Test handling of generic request exception."""
+        mock_request.side_effect = requests.RequestException("Network error")
+
+        client = KalshiClient(api_key="test", api_secret="test")
+
+        with pytest.raises(requests.RequestException):
+            client.get_markets()
 
 
 class TestKalshiClientTyped:
@@ -915,3 +1108,87 @@ class TestKalshiClientTyped:
         spread = client.calculate_spread("NONEXISTENT")
 
         assert spread is None
+
+    @patch("requests.Session.request")
+    @patch.object(KalshiClient, "_ensure_authenticated")
+    def test_get_markets_typed_parse_error(
+        self, mock_auth: MagicMock, mock_request: MagicMock
+    ) -> None:
+        """Test get_markets_typed handles parse errors gracefully."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        # Invalid market data that will cause parse error
+        mock_response.json.return_value = {
+            "markets": [
+                {"ticker": "VALID", "event_ticker": "TEST", "title": "Test", "status": "open"},
+                {"invalid": "data"},  # Missing required fields
+            ]
+        }
+        mock_request.return_value = mock_response
+
+        client = KalshiClient(api_key="test", api_secret="test")
+        markets = client.get_markets_typed()
+
+        # Should return valid markets, skip invalid ones
+        assert len(markets) >= 1
+
+    @patch("requests.Session.request")
+    @patch.object(KalshiClient, "_ensure_authenticated")
+    def test_get_market_typed_parse_error(
+        self, mock_auth: MagicMock, mock_request: MagicMock
+    ) -> None:
+        """Test get_market_typed handles parse errors gracefully."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        # Invalid market data
+        mock_response.json.return_value = {"market": {"invalid": "data"}}
+        mock_request.return_value = mock_response
+
+        client = KalshiClient(api_key="test", api_secret="test")
+        market = client.get_market_typed("TEST")
+
+        # Should return None on parse error
+        assert market is None
+
+    @patch("requests.Session.request")
+    @patch.object(KalshiClient, "_ensure_authenticated")
+    def test_get_orderbook_typed_parse_error(
+        self, mock_auth: MagicMock, mock_request: MagicMock
+    ) -> None:
+        """Test get_orderbook_typed handles level parse errors."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "orderbook": {
+                "yes": [
+                    {"price": 45, "count": 100},
+                    {"invalid": "level"},  # Invalid level
+                ],
+                "no": [{"price": 55, "count": 100}],
+            }
+        }
+        mock_request.return_value = mock_response
+
+        client = KalshiClient(api_key="test", api_secret="test")
+        orderbook = client.get_orderbook_typed("TEST")
+
+        # Should have parsed valid levels
+        assert len(orderbook.yes) >= 1
+        assert len(orderbook.no) == 1
+
+    @patch("requests.Session.request")
+    @patch.object(KalshiClient, "_ensure_authenticated")
+    def test_get_markets_with_event_ticker(
+        self, mock_auth: MagicMock, mock_request: MagicMock
+    ) -> None:
+        """Test get_markets with event_ticker filter."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"markets": []}
+        mock_request.return_value = mock_response
+
+        client = KalshiClient(api_key="test", api_secret="test")
+        client.get_markets(event_ticker="HIGHNYC-25JAN26")
+
+        call_kwargs = mock_request.call_args[1]
+        assert call_kwargs["params"]["event_ticker"] == "HIGHNYC-25JAN26"

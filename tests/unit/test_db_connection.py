@@ -190,6 +190,156 @@ class TestWeatherCacheEdgeCases:
         assert cached.age_minutes() >= 10.0
         assert cached.age_seconds() >= 600.0
 
+    def test_weather_cache_get_weather_force_refresh(self) -> None:
+        """Test get_weather with force_refresh=True."""
+        from src.shared.api.weather_cache import WeatherCache
+
+        with patch("src.shared.api.weather_cache.NWSClient") as mock_nws, \
+             patch("src.shared.api.weather_cache.city_loader") as mock_loader:
+
+            mock_city = MagicMock()
+            mock_city.code = "NYC"
+            mock_city.nws_office = "OKX"
+            mock_city.nws_grid_x = 33
+            mock_city.nws_grid_y = 37
+            mock_city.settlement_station = "KNYC"
+            mock_loader.get_city.return_value = mock_city
+
+            mock_nws_instance = MagicMock()
+            mock_nws_instance.get_forecast.return_value = {"properties": {"test": "data"}}
+            mock_nws_instance.get_latest_observation.return_value = {"properties": {}}
+
+            cache = WeatherCache(nws_client=mock_nws_instance)
+
+            # First call
+            result1 = cache.get_weather("NYC")
+            assert result1.forecast is not None
+
+            # Second call with force_refresh
+            result2 = cache.get_weather("NYC", force_refresh=True)
+            assert result2.forecast is not None
+
+            # Should have called API twice
+            assert mock_nws_instance.get_forecast.call_count == 2
+
+    def test_weather_cache_fetch_forecast_failure(self) -> None:
+        """Test _fetch_and_cache handles forecast failure."""
+        from src.shared.api.weather_cache import WeatherCache
+
+        with patch("src.shared.api.weather_cache.NWSClient") as mock_nws, \
+             patch("src.shared.api.weather_cache.city_loader") as mock_loader:
+
+            mock_city = MagicMock()
+            mock_city.code = "NYC"
+            mock_city.nws_office = "OKX"
+            mock_city.nws_grid_x = 33
+            mock_city.nws_grid_y = 37
+            mock_city.settlement_station = "KNYC"
+            mock_loader.get_city.return_value = mock_city
+
+            mock_nws_instance = MagicMock()
+            mock_nws_instance.get_forecast.side_effect = Exception("Forecast API error")
+            mock_nws_instance.get_latest_observation.return_value = {"properties": {"temp": 50}}
+
+            cache = WeatherCache(nws_client=mock_nws_instance)
+            result = cache.get_weather("NYC")
+
+            # Should still return result with observation but no forecast
+            assert result.forecast is None
+            assert result.observation is not None
+
+    def test_weather_cache_fetch_observation_failure(self) -> None:
+        """Test _fetch_and_cache handles observation failure."""
+        from src.shared.api.weather_cache import WeatherCache
+
+        with patch("src.shared.api.weather_cache.NWSClient") as mock_nws, \
+             patch("src.shared.api.weather_cache.city_loader") as mock_loader:
+
+            mock_city = MagicMock()
+            mock_city.code = "NYC"
+            mock_city.nws_office = "OKX"
+            mock_city.nws_grid_x = 33
+            mock_city.nws_grid_y = 37
+            mock_city.settlement_station = "KNYC"
+            mock_loader.get_city.return_value = mock_city
+
+            mock_nws_instance = MagicMock()
+            mock_nws_instance.get_forecast.return_value = {"properties": {"test": "data"}}
+            mock_nws_instance.get_latest_observation.side_effect = Exception("Observation API error")
+
+            cache = WeatherCache(nws_client=mock_nws_instance)
+            result = cache.get_weather("NYC")
+
+            # Should still return result with forecast but no observation
+            assert result.forecast is not None
+            assert result.observation is None
+
+    def test_weather_cache_stale_data(self) -> None:
+        """Test weather cache marks data as stale after threshold."""
+        from datetime import datetime, timedelta, timezone
+        from src.shared.api.weather_cache import WeatherCache, CachedWeather
+
+        with patch("src.shared.api.weather_cache.NWSClient"):
+            cache = WeatherCache(ttl_minutes=30, staleness_threshold_minutes=5)
+
+            # Manually insert stale data
+            old_time = datetime.now(timezone.utc) - timedelta(minutes=10)
+            cache._cache["NYC"] = CachedWeather(
+                city_code="NYC",
+                forecast={"test": "data"},
+                fetched_at=old_time,
+            )
+
+            result = cache.get_weather("NYC")
+
+            # Should be marked as stale
+            assert result.is_stale is True
+
+    def test_weather_cache_invalidate_existing(self) -> None:
+        """Test invalidating an existing cache entry."""
+        from datetime import datetime, timezone
+        from src.shared.api.weather_cache import WeatherCache, CachedWeather
+
+        with patch("src.shared.api.weather_cache.NWSClient"):
+            cache = WeatherCache()
+
+            # Add entry
+            cache._cache["NYC"] = CachedWeather(
+                city_code="NYC",
+                forecast={"test": "data"},
+                fetched_at=datetime.now(timezone.utc),
+            )
+
+            result = cache.invalidate("NYC")
+
+            assert result is True
+            assert "NYC" not in cache._cache
+
+    def test_weather_cache_invalidate_all_with_entries(self) -> None:
+        """Test invalidating all entries when cache has data."""
+        from datetime import datetime, timezone
+        from src.shared.api.weather_cache import WeatherCache, CachedWeather
+
+        with patch("src.shared.api.weather_cache.NWSClient"):
+            cache = WeatherCache()
+
+            # Add entries
+            cache._cache["NYC"] = CachedWeather(
+                city_code="NYC",
+                forecast={"test": "data"},
+                fetched_at=datetime.now(timezone.utc),
+            )
+            cache._cache["LAX"] = CachedWeather(
+                city_code="LAX",
+                forecast={"test": "data"},
+                fetched_at=datetime.now(timezone.utc),
+            )
+
+            count = cache.invalidate_all()
+
+            assert count == 2
+            assert len(cache._cache) == 0
+
 
 class TestGetDb:
     """Tests for get_db singleton function."""

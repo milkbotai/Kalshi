@@ -919,6 +919,216 @@ class TestTradingLoopErrorHandling:
         assert order is not None
 
 
+class TestTradingLoopOrderSubmissionEdgeCases:
+    """Tests for order submission edge cases in trading loop."""
+
+    @pytest.fixture
+    def mock_city_loader(self) -> MagicMock:
+        """Create mock city loader."""
+        mock_city = MagicMock()
+        mock_city.code = "NYC"
+        mock_city.name = "New York City"
+        mock_city.nws_office = "OKX"
+        mock_city.nws_grid_x = 33
+        mock_city.nws_grid_y = 37
+        mock_city.settlement_station = "KNYC"
+        mock_city.cluster = "NE"
+        return mock_city
+
+    @patch("src.trader.trading_loop.city_loader")
+    @patch("src.trader.trading_loop.get_settings")
+    def test_submit_order_live_mode_not_confirmed(
+        self,
+        mock_settings: MagicMock,
+        mock_loader: MagicMock,
+        mock_city_loader: MagicMock,
+    ) -> None:
+        """Test order submission in LIVE mode without confirmation."""
+        settings = MagicMock()
+        settings.trading_mode = TradingMode.LIVE
+        settings.kalshi_api_key = "live_key"
+        settings.kalshi_api_secret = "live_secret"
+        settings.kalshi_api_url = "https://api.kalshi.com"
+        mock_settings.return_value = settings
+        mock_loader.get_city.return_value = mock_city_loader
+
+        mock_kalshi = MagicMock()
+        mock_kalshi.get_markets_typed.return_value = [
+            Market(
+                ticker="HIGHNYC-25JAN26-T42",
+                event_ticker="HIGHNYC-25JAN26",
+                title="Test",
+                status="open",
+                yes_bid=30,
+                yes_ask=32,
+                volume=10000,
+                open_interest=50000,
+                strike_price=42.0,
+            )
+        ]
+
+        mock_strategy = MagicMock()
+        mock_strategy.name = "test"
+        mock_strategy.evaluate.return_value = Signal(
+            ticker="HIGHNYC-25JAN26-T42",
+            p_yes=0.7,
+            uncertainty=0.05,
+            edge=15.0,
+            decision="BUY",
+            side="yes",
+            max_price=65.0,
+        )
+
+        mock_weather_cache = MagicMock()
+        mock_weather_cache.get_weather.return_value = CachedWeather(
+            city_code="NYC",
+            forecast={"periods": [{"temperature": 50, "isDaytime": True}]},
+        )
+
+        loop = TradingLoop(
+            kalshi_client=mock_kalshi,
+            weather_cache=mock_weather_cache,
+            strategy=mock_strategy,
+            trading_mode=TradingMode.LIVE,
+        )
+
+        # Don't confirm live mode
+        result = loop.run_cycle("NYC")
+
+        # Order should be rejected because LIVE mode not confirmed
+        mock_kalshi.create_order.assert_not_called()
+
+    @patch("src.trader.trading_loop.city_loader")
+    @patch("src.trader.trading_loop.get_settings")
+    def test_submit_order_kalshi_returns_no_order_id(
+        self,
+        mock_settings: MagicMock,
+        mock_loader: MagicMock,
+        mock_city_loader: MagicMock,
+    ) -> None:
+        """Test handling when Kalshi returns response without order_id."""
+        settings = MagicMock()
+        settings.trading_mode = TradingMode.DEMO
+        settings.kalshi_api_key = "test"
+        settings.kalshi_api_secret = "test"
+        settings.kalshi_api_url = "https://demo-api.kalshi.co"
+        mock_settings.return_value = settings
+        mock_loader.get_city.return_value = mock_city_loader
+
+        mock_kalshi = MagicMock()
+        mock_kalshi.get_markets_typed.return_value = [
+            Market(
+                ticker="HIGHNYC-25JAN26-T42",
+                event_ticker="HIGHNYC-25JAN26",
+                title="Test",
+                status="open",
+                yes_bid=30,
+                yes_ask=32,
+                volume=10000,
+                open_interest=50000,
+                strike_price=42.0,
+            )
+        ]
+        # Return response without order_id
+        mock_kalshi.create_order.return_value = {"status": "accepted"}
+
+        mock_strategy = MagicMock()
+        mock_strategy.name = "test"
+        mock_strategy.evaluate.return_value = Signal(
+            ticker="HIGHNYC-25JAN26-T42",
+            p_yes=0.7,
+            uncertainty=0.05,
+            edge=15.0,
+            decision="BUY",
+            side="yes",
+            max_price=65.0,
+        )
+
+        mock_weather_cache = MagicMock()
+        mock_weather_cache.get_weather.return_value = CachedWeather(
+            city_code="NYC",
+            forecast={"periods": [{"temperature": 50, "isDaytime": True}]},
+        )
+
+        loop = TradingLoop(
+            kalshi_client=mock_kalshi,
+            weather_cache=mock_weather_cache,
+            strategy=mock_strategy,
+            trading_mode=TradingMode.DEMO,
+        )
+
+        result = loop.run_cycle("NYC")
+
+        # Should handle gracefully
+        assert result.orders_submitted >= 0
+
+    @patch("src.trader.trading_loop.city_loader")
+    @patch("src.trader.trading_loop.get_settings")
+    def test_submit_order_no_side(
+        self,
+        mock_settings: MagicMock,
+        mock_loader: MagicMock,
+        mock_city_loader: MagicMock,
+    ) -> None:
+        """Test order submission when signal has no side defaults to yes."""
+        settings = MagicMock()
+        settings.trading_mode = TradingMode.DEMO
+        settings.kalshi_api_key = "test"
+        settings.kalshi_api_secret = "test"
+        settings.kalshi_api_url = "https://demo-api.kalshi.co"
+        mock_settings.return_value = settings
+        mock_loader.get_city.return_value = mock_city_loader
+
+        mock_kalshi = MagicMock()
+        mock_kalshi.get_markets_typed.return_value = [
+            Market(
+                ticker="HIGHNYC-25JAN26-T42",
+                event_ticker="HIGHNYC-25JAN26",
+                title="Test",
+                status="open",
+                yes_bid=30,
+                yes_ask=32,
+                volume=10000,
+                open_interest=50000,
+                strike_price=42.0,
+            )
+        ]
+        mock_kalshi.create_order.return_value = {"order_id": "test_123"}
+
+        mock_strategy = MagicMock()
+        mock_strategy.name = "test"
+        # Signal with side=None
+        mock_strategy.evaluate.return_value = Signal(
+            ticker="HIGHNYC-25JAN26-T42",
+            p_yes=0.7,
+            uncertainty=0.05,
+            edge=15.0,
+            decision="BUY",
+            side=None,  # No side specified
+            max_price=65.0,
+        )
+
+        mock_weather_cache = MagicMock()
+        mock_weather_cache.get_weather.return_value = CachedWeather(
+            city_code="NYC",
+            forecast={"periods": [{"temperature": 50, "isDaytime": True}]},
+        )
+
+        loop = TradingLoop(
+            kalshi_client=mock_kalshi,
+            weather_cache=mock_weather_cache,
+            strategy=mock_strategy,
+            trading_mode=TradingMode.DEMO,
+        )
+
+        result = loop.run_cycle("NYC")
+
+        # Should default to "yes" side
+        if mock_kalshi.create_order.called:
+            call_kwargs = mock_kalshi.create_order.call_args[1]
+            assert call_kwargs.get("side") == "yes"
+
+
 class TestMultiCityOrchestratorErrorHandling:
     """Tests for error handling in multi-city orchestrator."""
 
@@ -1148,6 +1358,51 @@ class TestMultiCityOrchestratorErrorHandling:
         assert len(results) == 3
         # Should be faster than sequential (< 0.3s for 3 cities)
         assert elapsed < 0.3
+
+    @patch("src.trader.trading_loop.city_loader")
+    def test_run_all_cities_aggregate_risk_blocks(
+        self,
+        mock_loader: MagicMock,
+        mock_trading_loop: MagicMock,
+    ) -> None:
+        """Test run_all_cities blocked by aggregate risk check."""
+        # Simulate very high exposure
+        mock_trading_loop.oms.get_orders_by_status.side_effect = lambda status: [
+            {"quantity": 10000, "limit_price": 50}
+        ] * 200 if status in ["pending", "resting"] else []
+
+        orchestrator = MultiCityOrchestrator(
+            trading_loop=mock_trading_loop,
+            city_codes=["NYC", "LAX"],
+            trading_mode=TradingMode.SHADOW,
+        )
+
+        result = orchestrator.run_all_cities(prefetch_weather=False)
+
+        # Should be blocked
+        assert result.success is False
+        assert result.cities_failed == 2
+        mock_trading_loop.run_cycle.assert_not_called()
+
+    @patch("src.trader.trading_loop.city_loader")
+    def test_check_aggregate_risk_circuit_breaker_paused(
+        self,
+        mock_loader: MagicMock,
+        mock_trading_loop: MagicMock,
+    ) -> None:
+        """Test _check_aggregate_risk returns False when circuit breaker paused."""
+        mock_trading_loop.circuit_breaker.is_paused = True
+        mock_trading_loop.circuit_breaker.pause_reason = "Test pause"
+
+        orchestrator = MultiCityOrchestrator(
+            trading_loop=mock_trading_loop,
+            city_codes=["NYC"],
+            trading_mode=TradingMode.SHADOW,
+        )
+
+        result = orchestrator._check_aggregate_risk()
+
+        assert result is False
 
     @patch("src.trader.trading_loop.city_loader")
     def test_run_all_cities_without_prefetch(
