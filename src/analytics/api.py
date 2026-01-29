@@ -6,11 +6,15 @@ city metrics, strategy metrics, equity curve, and health status.
 
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
+from functools import lru_cache
 from typing import Any
 
 from src.shared.config.logging import get_logger
 
 logger = get_logger(__name__)
+
+# Cache TTL in seconds
+CACHE_TTL = 5
 
 
 @dataclass
@@ -50,7 +54,26 @@ class AnalyticsAPI:
             engine: SQLAlchemy engine instance
         """
         self.engine = engine
+        self._cache: dict[str, tuple[datetime, Any]] = {}
         logger.info("analytics_api_initialized")
+
+    def _get_cached(self, key: str) -> Any | None:
+        """Get cached value if still valid."""
+        if key in self._cache:
+            cached_time, cached_value = self._cache[key]
+            age = (datetime.now(timezone.utc) - cached_time).total_seconds()
+            if age < CACHE_TTL:
+                logger.debug("cache_hit", key=key, age_seconds=age)
+                return cached_value
+            else:
+                logger.debug("cache_expired", key=key, age_seconds=age)
+                del self._cache[key]
+        return None
+
+    def _set_cache(self, key: str, value: Any) -> None:
+        """Set cached value with current timestamp."""
+        self._cache[key] = (datetime.now(timezone.utc), value)
+        logger.debug("cache_set", key=key)
 
     def get_city_metrics(
         self,
@@ -70,6 +93,12 @@ class AnalyticsAPI:
         Returns:
             APIResponse with city metrics data
         """
+        # Check cache
+        cache_key = f"city_metrics:{city_code}:{start_date}:{end_date}:{limit}"
+        cached = self._get_cached(cache_key)
+        if cached is not None:
+            return cached
+
         try:
             from src.analytics.rollups import get_city_metrics
 
@@ -97,7 +126,7 @@ class AnalyticsAPI:
             else:
                 summary = {"total_pnl": 0, "total_trades": 0, "win_rate": 0}
 
-            return APIResponse(
+            response = APIResponse(
                 success=True,
                 data={
                     "metrics": metrics[:limit],
@@ -105,6 +134,10 @@ class AnalyticsAPI:
                     "count": len(metrics),
                 },
             )
+            
+            # Cache successful response
+            self._set_cache(cache_key, response)
+            return response
 
         except Exception as e:
             logger.error("city_metrics_query_failed", error=str(e))
@@ -187,6 +220,12 @@ class AnalyticsAPI:
         Returns:
             APIResponse with equity curve data
         """
+        # Check cache
+        cache_key = f"equity_curve:{start_date}:{end_date}"
+        cached = self._get_cached(cache_key)
+        if cached is not None:
+            return cached
+
         try:
             from src.analytics.rollups import get_equity_curve
 
@@ -220,13 +259,17 @@ class AnalyticsAPI:
                     "trading_days": 0,
                 }
 
-            return APIResponse(
+            response = APIResponse(
                 success=True,
                 data={
                     "curve": curve,
                     "summary": summary,
                 },
             )
+            
+            # Cache successful response
+            self._set_cache(cache_key, response)
+            return response
 
         except Exception as e:
             logger.error("equity_curve_query_failed", error=str(e))
