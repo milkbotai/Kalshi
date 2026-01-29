@@ -177,7 +177,7 @@ class TestWeatherCacheEdgeCases:
 
     def test_cached_weather_age_calculation(self) -> None:
         """Test CachedWeather age calculation."""
-        from datetime import timedelta
+        from datetime import datetime, timedelta, timezone
         from src.shared.api.weather_cache import CachedWeather
 
         old_time = datetime.now(timezone.utc) - timedelta(minutes=10)
