@@ -566,6 +566,56 @@ class TestEquityCurveRollup:
         mock_conn.execute.assert_called_once()
 
 
+class TestEquityCurveEdgeCases:
+    """Tests for equity curve edge cases."""
+
+    def test_get_equity_curve_empty_date_range(self) -> None:
+        """Test get_equity_curve with date range that returns no results."""
+        mock_result = MagicMock()
+        mock_result.__iter__ = MagicMock(return_value=iter([]))
+
+        mock_conn = MagicMock()
+        mock_conn.__enter__ = MagicMock(return_value=mock_conn)
+        mock_conn.__exit__ = MagicMock(return_value=False)
+        mock_conn.execute.return_value = mock_result
+
+        mock_engine = MagicMock()
+        mock_engine.connect.return_value = mock_conn
+
+        # Query with future dates that have no data
+        curve = get_equity_curve(
+            mock_engine,
+            start_date=date(2099, 1, 1),
+            end_date=date(2099, 12, 31),
+        )
+
+        assert len(curve) == 0
+
+    def test_update_equity_curve_with_zero_pnl(self) -> None:
+        """Test update_equity_curve when daily P&L is exactly zero."""
+        mock_prev_result = MagicMock()
+        mock_prev_result.fetchone.return_value = (
+            Decimal("5000.00"),
+            Decimal("0"),
+            Decimal("5000.00"),
+        )
+
+        mock_pnl_result = MagicMock()
+        mock_pnl_result.fetchone.return_value = (Decimal("0"),)  # Zero P&L
+
+        mock_conn = MagicMock()
+        mock_conn.__enter__ = MagicMock(return_value=mock_conn)
+        mock_conn.__exit__ = MagicMock(return_value=False)
+        mock_conn.execute.side_effect = [mock_prev_result, mock_pnl_result, MagicMock()]
+
+        mock_engine = MagicMock()
+        mock_engine.connect.return_value = mock_conn
+
+        result = update_equity_curve(mock_engine, date(2026, 1, 28))
+
+        assert result is True
+
+
 class TestDailyRollups:
     """Tests for combined daily rollup function."""
 

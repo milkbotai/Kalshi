@@ -531,6 +531,57 @@ class TestDailyHighTempStrategy:
             assert ReasonCode.STRONG_EDGE in signal.reasons
             assert ReasonCode.SPREAD_OK in signal.reasons
 
+    def test_evaluate_negative_temperature(
+        self, strategy: DailyHighTempStrategy
+    ) -> None:
+        """Test evaluation with negative temperature forecast."""
+        market = Market(
+            ticker="TEST-01",
+            event_ticker="TEST",
+            title="Test",
+            yes_bid=90,
+            yes_ask=95,
+            volume=1000,
+            open_interest=5000,
+            status="open",
+            strike_price=32.0,
+        )
+        weather = {
+            "temperature": -10.0,  # Very cold
+            "forecast_std_dev": 3.0,
+        }
+
+        signal = strategy.evaluate(weather, market)
+
+        # Should have very low p_yes
+        assert signal.p_yes < 0.01
+        assert signal.features["forecast_high"] == -10.0
+
+    def test_evaluate_extreme_high_temperature(
+        self, strategy: DailyHighTempStrategy
+    ) -> None:
+        """Test evaluation with extreme high temperature forecast."""
+        market = Market(
+            ticker="TEST-01",
+            event_ticker="TEST",
+            title="Test",
+            yes_bid=5,
+            yes_ask=10,
+            volume=1000,
+            open_interest=5000,
+            status="open",
+            strike_price=100.0,
+        )
+        weather = {
+            "temperature": 115.0,  # Extreme heat
+            "forecast_std_dev": 3.0,
+        }
+
+        signal = strategy.evaluate(weather, market)
+
+        # Should have very high p_yes
+        assert signal.p_yes > 0.99
+
     def test_evaluate_features_always_populated(
         self, strategy: DailyHighTempStrategy, sample_market: Market
     ) -> None:

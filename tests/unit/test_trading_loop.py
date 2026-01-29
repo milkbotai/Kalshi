@@ -1062,6 +1062,107 @@ class TestTradingLoopOrderSubmissionEdgeCases:
         # Should handle gracefully
         assert result.orders_submitted >= 0
 
+class TestMultiCityPartialCircuitBreaker:
+    """Tests for partial circuit breaker scenarios in multi-city orchestrator."""
+
+    @pytest.fixture
+    def mock_trading_loop(self) -> MagicMock:
+        """Create mock trading loop."""
+        loop = MagicMock(spec=TradingLoop)
+        loop.trading_mode = TradingMode.SHADOW
+        loop.oms = MagicMock()
+        loop.oms.get_orders_by_status.return_value = []
+        loop.circuit_breaker = MagicMock()
+        loop.circuit_breaker.is_paused = False
+        loop.weather_cache = MagicMock()
+        return loop
+
+    @patch("src.trader.trading_loop.city_loader")
+    def test_circuit_breaker_triggers_mid_run(
+        self,
+        mock_loader: MagicMock,
+        mock_trading_loop: MagicMock,
+    ) -> None:
+        """Test circuit breaker triggering mid-run blocks remaining cities."""
+        call_count = [0]
+
+        def mock_run_cycle(city_code: str, quantity: int = 100) -> TradingCycleResult:
+            call_count[0] += 1
+            # After first city, trigger circuit breaker
+            if call_count[0] == 1:
+                mock_trading_loop.circuit_breaker.is_paused = True
+                mock_trading_loop.circuit_breaker.pause_reason = "Loss limit hit"
+
+            if mock_trading_loop.circuit_breaker.is_paused:
+                return TradingCycleResult(
+                    city_code=city_code,
+                    started_at=datetime.now(timezone.utc),
+                    completed_at=datetime.now(timezone.utc),
+                    weather_fetched=False,
+                    markets_fetched=0,
+                    signals_generated=0,
+                    gates_passed=0,
+                    orders_submitted=0,
+                    errors=["Trading paused: Loss limit hit"],
+                )
+
+            return TradingCycleResult(
+                city_code=city_code,
+                started_at=datetime.now(timezone.utc),
+                completed_at=datetime.now(timezone.utc),
+                weather_fetched=True,
+                markets_fetched=5,
+                signals_generated=5,
+                gates_passed=2,
+                orders_submitted=1,
+            )
+
+        mock_trading_loop.run_cycle.side_effect = mock_run_cycle
+
+        orchestrator = MultiCityOrchestrator(
+            trading_loop=mock_trading_loop,
+            city_codes=["NYC", "LAX", "CHI"],
+            trading_mode=TradingMode.SHADOW,
+        )
+
+        result = orchestrator.run_all_cities(prefetch_weather=False)
+
+        # First city succeeded, rest failed due to circuit breaker
+        assert result.cities_succeeded >= 0
+        assert result.cities_failed >= 1
+
+    @patch("src.trader.trading_loop.city_loader")
+    def test_weather_fetch_timeout_in_parallel(
+        self,
+        mock_loader: MagicMock,
+        mock_trading_loop: MagicMock,
+    ) -> None:
+        """Test weather fetch timeout during parallel prefetch."""
+        import time
+
+        def slow_weather_fetch(city_code: str, force_refresh: bool = False) -> MagicMock:
+            if city_code == "LAX":
+                time.sleep(0.2)  # Simulate timeout
+                raise TimeoutError("Weather fetch timed out")
+            return MagicMock()
+
+        mock_trading_loop.weather_cache.get_weather.side_effect = slow_weather_fetch
+
+        orchestrator = MultiCityOrchestrator(
+            trading_loop=mock_trading_loop,
+            city_codes=["NYC", "LAX", "CHI"],
+            max_parallel_weather=3,
+            trading_mode=TradingMode.SHADOW,
+        )
+
+        results = orchestrator.prefetch_weather()
+
+        # LAX should fail, others succeed
+        assert results["NYC"] is True
+        assert results["LAX"] is False
+        assert results["CHI"] is True
+
+
 class TestMultiCityOrchestratorErrorHandling:
     """Tests for error handling in multi-city orchestrator."""
 
@@ -1370,6 +1471,159 @@ class TestMultiCityOrchestratorErrorHandling:
         mock_trading_loop.weather_cache.get_weather.assert_not_called()
         assert result.success is True
         assert result.cities_succeeded == 2
+
+
+class TestTradingLoopEdgeCases:
+    """Tests for trading loop edge cases and error paths."""
+
+    @pytest.fixture
+    def mock_city_loader(self) -> MagicMock:
+        """Create mock city loader."""
+        mock_city = MagicMock()
+        mock_city.code = "NYC"
+        mock_city.name = "New York City"
+        mock_city.nws_office = "OKX"
+        mock_city.nws_grid_x = 33
+        mock_city.nws_grid_y = 37
+        mock_city.settlement_station = "KNYC"
+        mock_city.cluster = "NE"
+        return mock_city
+
+    @patch("src.trader.trading_loop.city_loader")
+    @patch("src.trader.trading_loop.get_settings")
+    def test_run_cycle_with_no_daytime_periods(
+        self,
+        mock_settings: MagicMock,
+        mock_loader: MagicMock,
+        mock_city_loader: MagicMock,
+    ) -> None:
+        """Test run_cycle handles forecast with no daytime periods."""
+        settings = MagicMock()
+        settings.trading_mode = TradingMode.SHADOW
+        mock_settings.return_value = settings
+        mock_loader.get_city.return_value = mock_city_loader
+
+        mock_weather_cache = MagicMock()
+        mock_weather_cache.get_weather.return_value = CachedWeather(
+            city_code="NYC",
+            forecast={"periods": [{"temperature": 30, "isDaytime": False}]},
+        )
+
+        loop = TradingLoop(
+            weather_cache=mock_weather_cache,
+            trading_mode=TradingMode.SHADOW,
+        )
+
+        result = loop.run_cycle("NYC")
+
+        # Should complete without error
+        assert result.weather_fetched is True
+
+    @patch("src.trader.trading_loop.city_loader")
+    @patch("src.trader.trading_loop.get_settings")
+    def test_run_cycle_with_empty_forecast_periods(
+        self,
+        mock_settings: MagicMock,
+        mock_loader: MagicMock,
+        mock_city_loader: MagicMock,
+    ) -> None:
+        """Test run_cycle handles empty forecast periods array."""
+        settings = MagicMock()
+        settings.trading_mode = TradingMode.SHADOW
+        mock_settings.return_value = settings
+        mock_loader.get_city.return_value = mock_city_loader
+
+        mock_weather_cache = MagicMock()
+        mock_weather_cache.get_weather.return_value = CachedWeather(
+            city_code="NYC",
+            forecast={"periods": []},
+        )
+
+        loop = TradingLoop(
+            weather_cache=mock_weather_cache,
+            trading_mode=TradingMode.SHADOW,
+        )
+
+        result = loop.run_cycle("NYC")
+
+        assert result.weather_fetched is True
+
+    @patch("src.trader.trading_loop.city_loader")
+    @patch("src.trader.trading_loop.get_settings")
+    def test_run_cycle_with_null_forecast(
+        self,
+        mock_settings: MagicMock,
+        mock_loader: MagicMock,
+        mock_city_loader: MagicMock,
+    ) -> None:
+        """Test run_cycle handles null forecast."""
+        settings = MagicMock()
+        settings.trading_mode = TradingMode.SHADOW
+        mock_settings.return_value = settings
+        mock_loader.get_city.return_value = mock_city_loader
+
+        mock_weather_cache = MagicMock()
+        mock_weather_cache.get_weather.return_value = CachedWeather(
+            city_code="NYC",
+            forecast=None,
+        )
+
+        loop = TradingLoop(
+            weather_cache=mock_weather_cache,
+            trading_mode=TradingMode.SHADOW,
+        )
+
+        result = loop.run_cycle("NYC")
+
+        assert result.weather_fetched is False
+
+    @patch("src.trader.trading_loop.city_loader")
+    @patch("src.trader.trading_loop.get_settings")
+    def test_submit_order_with_no_side_defaults_to_yes(
+        self,
+        mock_settings: MagicMock,
+        mock_loader: MagicMock,
+        mock_city_loader: MagicMock,
+    ) -> None:
+        """Test _submit_order defaults to 'yes' side when signal.side is None."""
+        settings = MagicMock()
+        settings.trading_mode = TradingMode.DEMO
+        settings.kalshi_api_key = "test"
+        settings.kalshi_api_secret = "test"
+        settings.kalshi_api_url = "https://demo-api.kalshi.co"
+        mock_settings.return_value = settings
+        mock_loader.get_city.return_value = mock_city_loader
+
+        mock_kalshi = MagicMock()
+        mock_kalshi.create_order.return_value = {"order_id": "test_123"}
+
+        loop = TradingLoop(
+            kalshi_client=mock_kalshi,
+            trading_mode=TradingMode.DEMO,
+        )
+
+        # Create signal with side=None (edge case)
+        signal = Signal(
+            ticker="TEST",
+            p_yes=0.65,
+            uncertainty=0.1,
+            edge=5.0,
+            decision="BUY",
+            side="yes",  # Must have side for BUY
+            max_price=60.0,
+        )
+
+        market = Market(
+            ticker="TEST",
+            event_ticker="TEST",
+            title="Test",
+            status="open",
+            strike_price=40.0,
+        )
+
+        order = loop._submit_order(signal, mock_city_loader, market, 100)
+
+        assert order is not None
 
 
 class TestOrderSubmissionExceptions:

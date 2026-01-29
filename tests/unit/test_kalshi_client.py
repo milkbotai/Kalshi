@@ -1192,3 +1192,133 @@ class TestKalshiClientTyped:
 
         call_kwargs = mock_request.call_args[1]
         assert call_kwargs["params"]["event_ticker"] == "HIGHNYC-25JAN26"
+
+    @patch("requests.Session.request")
+    @patch("requests.Session.post")
+    def test_token_refresh_fails_all_retries(
+        self, mock_post: MagicMock, mock_request: MagicMock
+    ) -> None:
+        """Test 401 retry exhaustion when token refresh keeps failing."""
+        mock_response_401 = MagicMock()
+        mock_response_401.status_code = 401
+
+        http_error = requests.HTTPError()
+        http_error.response = mock_response_401
+        mock_response_401.raise_for_status.side_effect = http_error
+
+        # All requests return 401
+        mock_request.return_value = mock_response_401
+
+        # Auth also fails
+        mock_auth_response = MagicMock()
+        mock_auth_response.status_code = 401
+        mock_auth_response.raise_for_status.side_effect = requests.HTTPError()
+        mock_post.return_value = mock_auth_response
+
+        client = KalshiClient(api_key="test", api_secret="test")
+        client._access_token = "old_token"
+
+        with pytest.raises(requests.HTTPError):
+            client.get_markets()
+
+    @patch("requests.Session.request")
+    @patch.object(KalshiClient, "_ensure_authenticated")
+    def test_create_order_network_timeout_all_retries(
+        self, mock_auth: MagicMock, mock_request: MagicMock
+    ) -> None:
+        """Test create_order with network timeout on all retry attempts."""
+        mock_request.side_effect = requests.Timeout("Connection timed out")
+
+        client = KalshiClient(api_key="test", api_secret="test")
+
+        with pytest.raises(requests.Timeout):
+            client.create_order(
+                ticker="TEST",
+                side="yes",
+                action="buy",
+                count=10,
+                yes_price=50,
+            )
+
+    @patch("requests.Session.request")
+    @patch.object(KalshiClient, "_ensure_authenticated")
+    def test_get_fills_with_malformed_timestamp(
+        self, mock_auth: MagicMock, mock_request: MagicMock
+    ) -> None:
+        """Test get_fills handles malformed timestamp in response."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "fills": [
+                {
+                    "order_id": "123",
+                    "count": 10,
+                    "yes_price": 50,
+                    "created_time": "not-a-valid-timestamp",
+                }
+            ]
+        }
+        mock_request.return_value = mock_response
+
+        client = KalshiClient(api_key="test", api_secret="test")
+        fills = client.get_fills()
+
+        # Should return fills even with malformed timestamp
+        assert len(fills) == 1
+        assert fills[0]["order_id"] == "123"
+
+    @patch("requests.Session.request")
+    @patch.object(KalshiClient, "_ensure_authenticated")
+    def test_get_fills_empty_with_cursor(
+        self, mock_auth: MagicMock, mock_request: MagicMock
+    ) -> None:
+        """Test get_fills with empty fills array but cursor present."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "fills": [],
+            "cursor": "next_page_cursor",
+        }
+        mock_request.return_value = mock_response
+
+        client = KalshiClient(api_key="test", api_secret="test")
+        fills = client.get_fills()
+
+        assert fills == []
+
+    @patch("requests.Session.request")
+    @patch.object(KalshiClient, "_ensure_authenticated")
+    def test_get_positions_returns_none_values(
+        self, mock_auth: MagicMock, mock_request: MagicMock
+    ) -> None:
+        """Test get_positions handles None values in response."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "positions": [
+                {
+                    "ticker": "TEST",
+                    "position": None,
+                    "total_cost": None,
+                }
+            ]
+        }
+        mock_request.return_value = mock_response
+
+        client = KalshiClient(api_key="test", api_secret="test")
+        positions = client.get_positions()
+
+        assert len(positions) == 1
+
+    @patch("requests.Session.request")
+    @patch.object(KalshiClient, "_ensure_authenticated")
+    def test_connection_error_no_retry(
+        self, mock_auth: MagicMock, mock_request: MagicMock
+    ) -> None:
+        """Test connection error is raised without retry."""
+        mock_request.side_effect = requests.ConnectionError("Connection refused")
+
+        client = KalshiClient(api_key="test", api_secret="test")
+
+        with pytest.raises(requests.ConnectionError):
+            client.get_markets()

@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from src.analytics.api import AnalyticsAPI, APIResponse, create_analytics_api
+from src.analytics.signal_generator import Signal as AnalyticsSignal, SignalGenerator
 
 
 class TestAPIResponse:
@@ -502,6 +503,206 @@ class TestAnalyticsAPI:
 
             assert response.success is False
             assert "Unexpected error" in response.error
+
+
+class TestAnalyticsAPIEdgeCases:
+    """Tests for analytics API edge cases."""
+
+    @pytest.fixture
+    def mock_engine(self) -> MagicMock:
+        """Create mock database engine."""
+        return MagicMock()
+
+    @pytest.fixture
+    def api(self, mock_engine: MagicMock) -> AnalyticsAPI:
+        """Create AnalyticsAPI instance."""
+        return AnalyticsAPI(mock_engine)
+
+    @patch("src.analytics.rollups.get_city_metrics")
+    def test_get_city_metrics_with_zero_wins_and_losses(
+        self,
+        mock_get_city: MagicMock,
+        api: AnalyticsAPI,
+    ) -> None:
+        """Test city metrics with zero wins and losses."""
+        mock_get_city.return_value = [
+            {
+                "city_code": "NYC",
+                "trade_count": 0,
+                "net_pnl": Decimal("0"),
+                "win_count": 0,
+                "loss_count": 0,
+            },
+        ]
+
+        response = api.get_city_metrics()
+
+        assert response.success is True
+        assert response.data["summary"]["win_rate"] == 0
+
+    @patch("src.analytics.rollups.get_strategy_metrics")
+    def test_get_strategy_metrics_with_zero_signals(
+        self,
+        mock_get_strategy: MagicMock,
+        api: AnalyticsAPI,
+    ) -> None:
+        """Test strategy metrics with zero signals."""
+        mock_get_strategy.return_value = [
+            {
+                "strategy_name": "test",
+                "trade_count": 0,
+                "signal_count": 0,
+                "net_pnl": Decimal("0"),
+            },
+        ]
+
+        response = api.get_strategy_metrics()
+
+        assert response.success is True
+        assert response.data["summary"]["conversion_rate"] == 0
+
+    def test_cache_key_generation(self, api: AnalyticsAPI) -> None:
+        """Test cache key generation for different parameters."""
+        # Set different cache entries
+        api._set_cache("key1", "value1")
+        api._set_cache("key2", "value2")
+
+        assert api._get_cached("key1") == "value1"
+        assert api._get_cached("key2") == "value2"
+        assert api._get_cached("key3") is None
+
+
+class TestSignalGenerator:
+    """Tests for SignalGenerator class."""
+
+    def test_generate_temperature_signal_missing_data(self) -> None:
+        """Test temperature signal with missing data."""
+        from src.shared.api.response_models import Market
+
+        generator = SignalGenerator()
+        market = Market(
+            ticker="TEST",
+            event_ticker="TEST",
+            title="Test",
+            status="open",
+            strike_price=None,  # Missing strike
+        )
+        weather = {"temperature": 45.0}
+
+        signal = generator.generate_temperature_signal(weather, market)
+
+        assert signal is None
+
+    def test_generate_temperature_signal_low_confidence(self) -> None:
+        """Test temperature signal with low confidence."""
+        from src.shared.api.response_models import Market
+
+        generator = SignalGenerator(min_confidence=0.6)
+        market = Market(
+            ticker="TEST",
+            event_ticker="TEST",
+            title="Test",
+            status="open",
+            strike_price=45.0,
+        )
+        weather = {"temperature": 46.0}  # Only 1 degree difference
+
+        signal = generator.generate_temperature_signal(weather, market)
+
+        # Low confidence should return None
+        assert signal is None
+
+    def test_generate_precipitation_signal_low_probability(self) -> None:
+        """Test precipitation signal with low probability."""
+        from src.shared.api.response_models import Market
+
+        generator = SignalGenerator()
+        market = Market(
+            ticker="TEST",
+            event_ticker="TEST",
+            title="Test",
+            status="open",
+        )
+        weather = {"precipitation_probability": 0.1}  # Low probability
+
+        signal = generator.generate_precipitation_signal(weather, market)
+
+        assert signal is None
+
+    def test_calculate_confidence_score_full(self) -> None:
+        """Test confidence score calculation with all factors."""
+        from src.shared.api.response_models import Market
+
+        generator = SignalGenerator()
+        market = Market(
+            ticker="TEST",
+            event_ticker="TEST",
+            title="Test",
+            status="open",
+            yes_bid=48,
+            yes_ask=50,  # Tight spread
+            volume=5000,
+            open_interest=10000,
+        )
+        weather = {
+            "temperature": 45.0,
+            "precipitation_probability": 0.3,
+        }
+
+        score = generator.calculate_confidence_score(weather, market)
+
+        assert 0.0 <= score <= 1.0
+        assert score > 0.5  # Should have decent score
+
+    def test_combine_signals_no_consensus(self) -> None:
+        """Test combining signals with no consensus."""
+        generator = SignalGenerator()
+
+        signals = [
+            AnalyticsSignal(ticker="TEST", side="yes", confidence=0.7, reason="Reason 1"),
+            AnalyticsSignal(ticker="TEST", side="no", confidence=0.7, reason="Reason 2"),
+        ]
+
+        combined = generator.combine_signals(signals)
+
+        # Equal votes = no consensus
+        assert combined is None
+
+    def test_combine_signals_empty_list(self) -> None:
+        """Test combining empty signal list."""
+        generator = SignalGenerator()
+
+        combined = generator.combine_signals([])
+
+        assert combined is None
+
+    def test_combine_signals_with_features(self) -> None:
+        """Test combining signals preserves features."""
+        generator = SignalGenerator()
+
+        signals = [
+            AnalyticsSignal(
+                ticker="TEST",
+                side="yes",
+                confidence=0.8,
+                reason="Reason 1",
+                features={"temp": 45},
+            ),
+            AnalyticsSignal(
+                ticker="TEST",
+                side="yes",
+                confidence=0.7,
+                reason="Reason 2",
+                features={"precip": 0.3},
+            ),
+        ]
+
+        combined = generator.combine_signals(signals)
+
+        assert combined is not None
+        assert combined.side == "yes"
+        assert "temp" in combined.features
+        assert "precip" in combined.features
 
 
 class TestCreateAnalyticsAPI:

@@ -341,6 +341,102 @@ class TestWeatherCacheEdgeCases:
             assert len(cache._cache) == 0
 
 
+class TestWeatherCacheAdvanced:
+    """Advanced tests for weather cache edge cases."""
+
+    def test_weather_cache_concurrent_access(self) -> None:
+        """Test weather cache handles concurrent access."""
+        import threading
+        from src.shared.api.weather_cache import WeatherCache
+
+        with patch("src.shared.api.weather_cache.NWSClient") as mock_nws, \
+             patch("src.shared.api.weather_cache.city_loader") as mock_loader:
+
+            mock_city = MagicMock()
+            mock_city.code = "NYC"
+            mock_city.nws_office = "OKX"
+            mock_city.nws_grid_x = 33
+            mock_city.nws_grid_y = 37
+            mock_city.settlement_station = "KNYC"
+            mock_loader.get_city.return_value = mock_city
+
+            mock_nws_instance = MagicMock()
+            mock_nws_instance.get_forecast.return_value = {"properties": {"test": "data"}}
+            mock_nws_instance.get_latest_observation.return_value = {"properties": {}}
+
+            cache = WeatherCache(nws_client=mock_nws_instance)
+
+            results = []
+
+            def fetch_weather():
+                result = cache.get_weather("NYC")
+                results.append(result)
+
+            threads = [threading.Thread(target=fetch_weather) for _ in range(5)]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join()
+
+            assert len(results) == 5
+            assert all(r.city_code == "NYC" for r in results)
+
+    def test_weather_cache_ttl_boundary(self) -> None:
+        """Test weather cache at exact TTL boundary."""
+        from datetime import datetime, timedelta, timezone
+        from src.shared.api.weather_cache import WeatherCache, CachedWeather
+
+        with patch("src.shared.api.weather_cache.NWSClient"):
+            cache = WeatherCache(ttl_minutes=5)
+
+            # Insert data exactly at TTL boundary
+            boundary_time = datetime.now(timezone.utc) - timedelta(minutes=5)
+            cache._cache["NYC"] = CachedWeather(
+                city_code="NYC",
+                forecast={"test": "data"},
+                fetched_at=boundary_time,
+            )
+
+            # Should be expired (>= TTL)
+            with patch.object(cache, "_fetch_and_cache") as mock_fetch:
+                mock_fetch.return_value = CachedWeather(
+                    city_code="NYC",
+                    forecast={"new": "data"},
+                )
+                result = cache.get_weather("NYC")
+
+                # Should have fetched new data
+                mock_fetch.assert_called_once()
+
+    def test_weather_cache_get_stats_with_mixed_entries(self) -> None:
+        """Test get_cache_stats with mix of fresh and stale entries."""
+        from datetime import datetime, timedelta, timezone
+        from src.shared.api.weather_cache import WeatherCache, CachedWeather
+
+        with patch("src.shared.api.weather_cache.NWSClient"):
+            cache = WeatherCache(ttl_minutes=30, staleness_threshold_minutes=5)
+
+            # Fresh entry
+            cache._cache["NYC"] = CachedWeather(
+                city_code="NYC",
+                forecast={"test": "data"},
+                fetched_at=datetime.now(timezone.utc),
+            )
+
+            # Stale entry
+            cache._cache["LAX"] = CachedWeather(
+                city_code="LAX",
+                forecast={"test": "data"},
+                fetched_at=datetime.now(timezone.utc) - timedelta(minutes=10),
+            )
+
+            stats = cache.get_cache_stats()
+
+            assert stats["total_entries"] == 2
+            assert stats["entries"]["NYC"]["is_stale"] is False
+            assert stats["entries"]["LAX"]["is_stale"] is True
+
+
 class TestGetDb:
     """Tests for get_db singleton function."""
 
@@ -382,3 +478,133 @@ class TestGetDb:
         finally:
             # Reset for other tests
             conn_module._db_manager = original
+
+
+class TestResponseModels:
+    """Tests for response model edge cases."""
+
+    def test_market_spread_with_none_values(self) -> None:
+        """Test Market spread_cents with None bid/ask."""
+        from src.shared.api.response_models import Market
+
+        market = Market(
+            ticker="TEST",
+            event_ticker="TEST",
+            title="Test",
+            status="open",
+            yes_bid=None,
+            yes_ask=None,
+        )
+
+        assert market.spread_cents is None
+        assert market.mid_price is None
+
+    def test_market_spread_calculation(self) -> None:
+        """Test Market spread_cents calculation."""
+        from src.shared.api.response_models import Market
+
+        market = Market(
+            ticker="TEST",
+            event_ticker="TEST",
+            title="Test",
+            status="open",
+            yes_bid=45,
+            yes_ask=48,
+        )
+
+        assert market.spread_cents == 3
+        assert market.mid_price == 46.5
+
+    def test_orderbook_best_prices_empty(self) -> None:
+        """Test Orderbook best prices with empty levels."""
+        from src.shared.api.response_models import Orderbook
+
+        orderbook = Orderbook(yes=[], no=[])
+
+        assert orderbook.best_yes_bid is None
+        assert orderbook.best_yes_ask is None
+
+    def test_order_is_filled_property(self) -> None:
+        """Test Order is_filled property."""
+        from src.shared.api.response_models import Order
+        from datetime import datetime, timezone
+
+        order = Order(
+            order_id="123",
+            ticker="TEST",
+            side="yes",
+            action="buy",
+            count=10,
+            status="filled",
+            created_time=datetime.now(timezone.utc),
+            filled_count=10,
+        )
+
+        assert order.is_filled is True
+
+    def test_position_average_price_zero_position(self) -> None:
+        """Test Position average_price with zero position."""
+        from src.shared.api.response_models import Position
+
+        position = Position(
+            ticker="TEST",
+            position=0,
+            total_cost=0,
+        )
+
+        assert position.average_price is None
+
+    def test_fill_price_and_notional(self) -> None:
+        """Test Fill price and notional_value properties."""
+        from src.shared.api.response_models import Fill
+        from datetime import datetime, timezone
+
+        fill = Fill(
+            fill_id="123",
+            order_id="456",
+            ticker="TEST",
+            side="yes",
+            action="buy",
+            count=10,
+            yes_price=50,
+            created_time=datetime.now(timezone.utc),
+        )
+
+        assert fill.price == 50
+        assert fill.notional_value == 500
+
+    def test_balance_available_balance(self) -> None:
+        """Test Balance available_balance property."""
+        from src.shared.api.response_models import Balance
+
+        balance = Balance(
+            balance=10000,
+            payout=2000,
+        )
+
+        assert balance.available_balance == 8000
+
+    def test_observation_extract_value_from_dict(self) -> None:
+        """Test Observation extracts value from NWS dict format."""
+        from src.shared.api.response_models import Observation
+        from datetime import datetime, timezone
+
+        # NWS returns values as {"value": 20.5, "unitCode": "wmoUnit:degC"}
+        obs = Observation(
+            timestamp=datetime.now(timezone.utc),
+            temperature={"value": 20.5, "unitCode": "wmoUnit:degC"},
+        )
+
+        assert obs.temperature == 20.5
+
+    def test_observation_extract_value_none(self) -> None:
+        """Test Observation handles None values."""
+        from src.shared.api.response_models import Observation
+        from datetime import datetime, timezone
+
+        obs = Observation(
+            timestamp=datetime.now(timezone.utc),
+            temperature=None,
+        )
+
+        assert obs.temperature is None
