@@ -1462,7 +1462,8 @@ class TestOrderSubmissionExceptions:
         loop.run_cycle("NYC")
 
         # Circuit breaker should have tracked the rejection
-        assert circuit_breaker._recent_rejects is not None or len(circuit_breaker._recent_rejects) >= 0
+        # The _reject_timestamps list stores timestamps of rejected orders
+        assert circuit_breaker._reject_timestamps is not None
 
 
 class TestTradingModeEnforcement:
