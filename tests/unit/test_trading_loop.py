@@ -15,13 +15,120 @@ from src.shared.config.settings import TradingMode
 from src.trader.oms import OrderManagementSystem, OrderState
 from src.trader.risk import CircuitBreaker, RiskCalculator
 from src.trader.strategies.daily_high_temp import DailyHighTempStrategy
-from src.trader.strategy import Signal
+from src.trader.strategy import ReasonCode, Signal
 from src.trader.trading_loop import (
     MultiCityOrchestrator,
     MultiCityRunResult,
     TradingCycleResult,
     TradingLoop,
 )
+
+
+class TestDailyHighTempStrategyEdgeCases:
+    """Tests for DailyHighTempStrategy edge cases."""
+
+    def test_strategy_buy_no_side(self) -> None:
+        """Test strategy returns BUY NO when forecast below threshold."""
+        strategy = DailyHighTempStrategy()
+
+        weather = {"temperature": 35, "forecast_std_dev": 2.0}
+        market = Market(
+            ticker="HIGHNYC-25JAN26-T42",
+            event_ticker="HIGHNYC-25JAN26",
+            title="Test",
+            status="open",
+            yes_bid=60,
+            yes_ask=65,
+            strike_price=42.0,
+        )
+
+        signal = strategy.evaluate(weather, market)
+
+        # Forecast 35 is below threshold 42, should buy NO
+        assert signal.decision == "BUY"
+        assert signal.side == "no"
+        assert signal.p_yes < 0.5
+
+    def test_strategy_high_uncertainty_hold(self) -> None:
+        """Test strategy returns HOLD when uncertainty too high."""
+        strategy = DailyHighTempStrategy(max_uncertainty=0.10)
+
+        weather = {"temperature": 45, "forecast_std_dev": 5.0}  # High std dev
+        market = Market(
+            ticker="HIGHNYC-25JAN26-T42",
+            event_ticker="HIGHNYC-25JAN26",
+            title="Test",
+            status="open",
+            yes_bid=45,
+            yes_ask=50,
+            strike_price=42.0,
+        )
+
+        signal = strategy.evaluate(weather, market)
+
+        assert signal.decision == "HOLD"
+        assert ReasonCode.HIGH_UNCERTAINTY in signal.reasons
+
+    def test_strategy_missing_market_pricing(self) -> None:
+        """Test strategy handles missing market pricing."""
+        strategy = DailyHighTempStrategy()
+
+        weather = {"temperature": 45}
+        market = Market(
+            ticker="HIGHNYC-25JAN26-T42",
+            event_ticker="HIGHNYC-25JAN26",
+            title="Test",
+            status="open",
+            yes_bid=None,
+            yes_ask=None,
+            strike_price=42.0,
+        )
+
+        signal = strategy.evaluate(weather, market)
+
+        assert signal.decision == "HOLD"
+        assert ReasonCode.MISSING_DATA in signal.reasons
+
+    def test_strategy_insufficient_edge(self) -> None:
+        """Test strategy returns HOLD when edge insufficient."""
+        strategy = DailyHighTempStrategy(min_edge=0.10)  # 10% min edge
+
+        weather = {"temperature": 43, "forecast_std_dev": 2.0}  # Close to threshold
+        market = Market(
+            ticker="HIGHNYC-25JAN26-T42",
+            event_ticker="HIGHNYC-25JAN26",
+            title="Test",
+            status="open",
+            yes_bid=50,
+            yes_ask=52,  # Market price close to fair value
+            strike_price=42.0,
+        )
+
+        signal = strategy.evaluate(weather, market)
+
+        # Edge should be small since forecast is close to threshold
+        assert signal.decision == "HOLD"
+        assert ReasonCode.INSUFFICIENT_EDGE in signal.reasons
+
+    def test_strategy_uses_default_std_dev(self) -> None:
+        """Test strategy uses default std dev when not provided."""
+        strategy = DailyHighTempStrategy(default_std_dev=4.0)
+
+        weather = {"temperature": 50}  # No forecast_std_dev
+        market = Market(
+            ticker="HIGHNYC-25JAN26-T42",
+            event_ticker="HIGHNYC-25JAN26",
+            title="Test",
+            status="open",
+            yes_bid=30,
+            yes_ask=35,
+            strike_price=42.0,
+        )
+
+        signal = strategy.evaluate(weather, market)
+
+        # Should use default_std_dev of 4.0
+        assert signal.features["std_dev"] == 4.0
 
 
 class TestTradingCycleResult:
@@ -1295,6 +1402,278 @@ class TestTradingModeEnforcement:
         return mock_city
 
 
+class TestTradingLoopValidation:
+    """Tests for trading loop validation and configuration."""
+
+    @patch("src.trader.trading_loop.city_loader")
+    @patch("src.trader.trading_loop.get_settings")
+    def test_demo_mode_with_production_url_warning(
+        self,
+        mock_settings: MagicMock,
+        mock_loader: MagicMock,
+    ) -> None:
+        """Test DEMO mode with production URL logs warning."""
+        settings = MagicMock()
+        settings.trading_mode = TradingMode.DEMO
+        settings.kalshi_api_key = "test_key"
+        settings.kalshi_api_secret = "test_secret"
+        settings.kalshi_api_url = "https://api.kalshi.com"  # Production URL
+        mock_settings.return_value = settings
+
+        # Should not raise, but would log warning
+        loop = TradingLoop(trading_mode=TradingMode.DEMO)
+        assert loop.trading_mode == TradingMode.DEMO
+
+    @patch("src.trader.trading_loop.city_loader")
+    @patch("src.trader.trading_loop.get_settings")
+    def test_live_mode_with_demo_url_warning(
+        self,
+        mock_settings: MagicMock,
+        mock_loader: MagicMock,
+    ) -> None:
+        """Test LIVE mode with demo URL logs warning."""
+        settings = MagicMock()
+        settings.trading_mode = TradingMode.LIVE
+        settings.kalshi_api_key = "live_key"
+        settings.kalshi_api_secret = "live_secret"
+        settings.kalshi_api_url = "https://demo-api.kalshi.co"  # Demo URL
+        mock_settings.return_value = settings
+
+        # Should not raise, but would log warning
+        loop = TradingLoop(trading_mode=TradingMode.LIVE)
+        assert loop.trading_mode == TradingMode.LIVE
+
+    @patch("src.trader.trading_loop.city_loader")
+    @patch("src.trader.trading_loop.get_settings")
+    def test_confirm_live_mode_not_live(
+        self,
+        mock_settings: MagicMock,
+        mock_loader: MagicMock,
+    ) -> None:
+        """Test confirm_live_mode returns False when not in LIVE mode."""
+        settings = MagicMock()
+        settings.trading_mode = TradingMode.SHADOW
+        mock_settings.return_value = settings
+
+        loop = TradingLoop(trading_mode=TradingMode.SHADOW)
+        result = loop.confirm_live_mode()
+
+        assert result is False
+        assert loop.is_live_trading_enabled is False
+
+    @patch("src.trader.trading_loop.city_loader")
+    @patch("src.trader.trading_loop.get_settings")
+    def test_confirm_live_mode_no_client(
+        self,
+        mock_settings: MagicMock,
+        mock_loader: MagicMock,
+    ) -> None:
+        """Test confirm_live_mode raises error without Kalshi client."""
+        settings = MagicMock()
+        settings.trading_mode = TradingMode.LIVE
+        settings.kalshi_api_key = "key"
+        settings.kalshi_api_secret = "secret"
+        settings.kalshi_api_url = "https://api.kalshi.com"
+        mock_settings.return_value = settings
+
+        loop = TradingLoop(trading_mode=TradingMode.LIVE)
+        loop.kalshi_client = None  # Remove client
+
+        with pytest.raises(ValueError, match="LIVE mode requires Kalshi client"):
+            loop.confirm_live_mode()
+
+
+class TestOMSEdgeCases:
+    """Tests for OMS edge cases."""
+
+    def test_oms_update_nonexistent_order(self) -> None:
+        """Test updating a non-existent order returns False."""
+        oms = OrderManagementSystem()
+
+        result = oms.update_order_status(
+            intent_key="nonexistent_key",
+            status=OrderState.FILLED,
+        )
+
+        assert result is False
+
+    def test_oms_reconcile_fills_with_timestamp_filter(self) -> None:
+        """Test reconcile_fills respects since_timestamp filter."""
+        oms = OrderManagementSystem()
+
+        # Create an order
+        signal = Signal(
+            ticker="TEST",
+            p_yes=0.65,
+            uncertainty=0.1,
+            edge=5.0,
+            decision="BUY",
+            side="yes",
+            max_price=60.0,
+        )
+
+        order = oms.submit_order(
+            signal=signal,
+            city_code="NYC",
+            market_id=123,
+            event_date="2026-01-28",
+            quantity=100,
+            limit_price=50.0,
+        )
+
+        # Update with kalshi order ID
+        oms.update_order_status(
+            order["intent_key"],
+            OrderState.SUBMITTED,
+            kalshi_order_id="kalshi_123",
+        )
+
+        # Create fill with old timestamp
+        old_fills = [
+            {
+                "order_id": "kalshi_123",
+                "count": 50,
+                "yes_price": 50,
+                "created_time": "2026-01-27T10:00:00Z",
+            }
+        ]
+
+        # Reconcile with since_timestamp after the fill
+        since = datetime(2026, 1, 28, 0, 0, 0, tzinfo=timezone.utc)
+        summary = oms.reconcile_fills(old_fills, since_timestamp=since)
+
+        # Fill should be skipped due to timestamp filter
+        assert summary["matched_count"] == 0
+
+    def test_oms_reconcile_fills_invalid_timestamp(self) -> None:
+        """Test reconcile_fills handles invalid timestamp gracefully."""
+        oms = OrderManagementSystem()
+
+        # Create an order
+        signal = Signal(
+            ticker="TEST",
+            p_yes=0.65,
+            uncertainty=0.1,
+            edge=5.0,
+            decision="BUY",
+            side="yes",
+            max_price=60.0,
+        )
+
+        order = oms.submit_order(
+            signal=signal,
+            city_code="NYC",
+            market_id=123,
+            event_date="2026-01-28",
+            quantity=100,
+            limit_price=50.0,
+        )
+
+        oms.update_order_status(
+            order["intent_key"],
+            OrderState.SUBMITTED,
+            kalshi_order_id="kalshi_123",
+        )
+
+        # Fill with invalid timestamp
+        fills = [
+            {
+                "order_id": "kalshi_123",
+                "count": 50,
+                "yes_price": 50,
+                "created_time": "invalid-timestamp",
+            }
+        ]
+
+        # Should not raise, uses current time as fallback
+        summary = oms.reconcile_fills(fills)
+        assert summary["matched_count"] == 1
+
+    def test_oms_reconcile_fills_no_timestamp(self) -> None:
+        """Test reconcile_fills handles missing timestamp."""
+        oms = OrderManagementSystem()
+
+        signal = Signal(
+            ticker="TEST",
+            p_yes=0.65,
+            uncertainty=0.1,
+            edge=5.0,
+            decision="BUY",
+            side="yes",
+            max_price=60.0,
+        )
+
+        order = oms.submit_order(
+            signal=signal,
+            city_code="NYC",
+            market_id=123,
+            event_date="2026-01-28",
+            quantity=100,
+            limit_price=50.0,
+        )
+
+        oms.update_order_status(
+            order["intent_key"],
+            OrderState.SUBMITTED,
+            kalshi_order_id="kalshi_123",
+        )
+
+        # Fill without timestamp
+        fills = [
+            {
+                "order_id": "kalshi_123",
+                "count": 50,
+                "yes_price": 50,
+            }
+        ]
+
+        summary = oms.reconcile_fills(fills)
+        assert summary["matched_count"] == 1
+
+    def test_oms_reconcile_fills_weighted_average_price(self) -> None:
+        """Test reconcile_fills calculates weighted average price correctly."""
+        oms = OrderManagementSystem()
+
+        signal = Signal(
+            ticker="TEST",
+            p_yes=0.65,
+            uncertainty=0.1,
+            edge=5.0,
+            decision="BUY",
+            side="yes",
+            max_price=60.0,
+        )
+
+        order = oms.submit_order(
+            signal=signal,
+            city_code="NYC",
+            market_id=123,
+            event_date="2026-01-28",
+            quantity=100,
+            limit_price=50.0,
+        )
+
+        oms.update_order_status(
+            order["intent_key"],
+            OrderState.SUBMITTED,
+            kalshi_order_id="kalshi_123",
+        )
+
+        # Multiple fills at different prices
+        fills = [
+            {"order_id": "kalshi_123", "count": 40, "yes_price": 50},
+            {"order_id": "kalshi_123", "count": 60, "yes_price": 55},
+        ]
+
+        summary = oms.reconcile_fills(fills)
+
+        # Check weighted average: (40*50 + 60*55) / 100 = 53
+        updated_order = oms.get_order_by_intent_key(order["intent_key"])
+        assert updated_order["average_fill_price"] == 53.0
+        assert updated_order["filled_quantity"] == 100
+        assert updated_order["status"] == OrderState.FILLED
+
+
 class TestMultiCityRunResult:
     """Tests for MultiCityRunResult dataclass."""
 
@@ -1335,6 +1714,44 @@ class TestMultiCityRunResult:
         )
 
         assert result.success is False
+
+
+class TestMultiCityOrchestratorCircuitBreaker:
+    """Tests for circuit breaker behavior in multi-city orchestrator."""
+
+    @pytest.fixture
+    def mock_trading_loop(self) -> MagicMock:
+        """Create mock trading loop."""
+        loop = MagicMock(spec=TradingLoop)
+        loop.trading_mode = TradingMode.SHADOW
+        loop.oms = MagicMock()
+        loop.oms.get_orders_by_status.return_value = []
+        loop.circuit_breaker = MagicMock()
+        loop.circuit_breaker.is_paused = False
+        loop.weather_cache = MagicMock()
+        return loop
+
+    @patch("src.trader.trading_loop.city_loader")
+    def test_circuit_breaker_blocks_all_cities(
+        self,
+        mock_loader: MagicMock,
+        mock_trading_loop: MagicMock,
+    ) -> None:
+        """Test circuit breaker blocks trading for all cities."""
+        mock_trading_loop.circuit_breaker.is_paused = True
+        mock_trading_loop.circuit_breaker.pause_reason = "Daily loss limit"
+
+        orchestrator = MultiCityOrchestrator(
+            trading_loop=mock_trading_loop,
+            city_codes=["NYC", "LAX", "CHI"],
+            trading_mode=TradingMode.SHADOW,
+        )
+
+        result = orchestrator.run_all_cities(prefetch_weather=False)
+
+        assert result.success is False
+        assert result.cities_failed == 3
+        mock_trading_loop.run_cycle.assert_not_called()
 
 
 class TestMultiCityOrchestrator:

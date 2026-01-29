@@ -27,6 +27,17 @@ class TestAPIResponse:
         assert response.error is None
         assert response.timestamp is not None
 
+    def test_api_response_with_explicit_timestamp(self) -> None:
+        """Test API response with explicit timestamp."""
+        explicit_time = datetime(2026, 1, 28, 12, 0, 0, tzinfo=timezone.utc)
+        response = APIResponse(
+            success=True,
+            data={"test": "data"},
+            timestamp=explicit_time,
+        )
+
+        assert response.timestamp == explicit_time
+
     def test_api_response_error(self) -> None:
         """Test error API response."""
         response = APIResponse(
@@ -70,6 +81,34 @@ class TestAnalyticsAPI:
         api = AnalyticsAPI(mock_engine)
         assert api.engine == mock_engine
 
+    def test_cache_hit(self, api: AnalyticsAPI) -> None:
+        """Test cache hit returns cached value."""
+        # Set a value in cache
+        api._set_cache("test_key", "cached_value")
+
+        # Should return cached value
+        result = api._get_cached("test_key")
+        assert result == "cached_value"
+
+    def test_cache_miss(self, api: AnalyticsAPI) -> None:
+        """Test cache miss returns None."""
+        result = api._get_cached("nonexistent_key")
+        assert result is None
+
+    def test_cache_expiry(self, api: AnalyticsAPI) -> None:
+        """Test cache expiry after TTL."""
+        import datetime as dt
+
+        # Set cache with old timestamp
+        old_time = datetime.now(timezone.utc) - dt.timedelta(seconds=10)
+        api._cache["expired_key"] = (old_time, "old_value")
+
+        # Should return None (expired)
+        result = api._get_cached("expired_key")
+        assert result is None
+        # Key should be removed
+        assert "expired_key" not in api._cache
+
     @patch("src.analytics.rollups.get_city_metrics")
     def test_get_city_metrics_success(
         self,
@@ -94,6 +133,45 @@ class TestAnalyticsAPI:
         assert response.data["count"] == 1
         assert response.data["summary"]["total_trades"] == 10
         assert response.data["summary"]["win_rate"] == 70.0
+
+    @patch("src.analytics.rollups.get_city_metrics")
+    def test_get_city_metrics_empty_results(
+        self,
+        mock_get_city: MagicMock,
+        api: AnalyticsAPI,
+    ) -> None:
+        """Test city metrics with empty results."""
+        mock_get_city.return_value = []
+
+        response = api.get_city_metrics()
+
+        assert response.success is True
+        assert response.data["count"] == 0
+        assert response.data["summary"]["total_pnl"] == 0
+        assert response.data["summary"]["total_trades"] == 0
+        assert response.data["summary"]["win_rate"] == 0
+
+    @patch("src.analytics.rollups.get_city_metrics")
+    def test_get_city_metrics_uses_cache(
+        self,
+        mock_get_city: MagicMock,
+        api: AnalyticsAPI,
+    ) -> None:
+        """Test city metrics uses cache on second call."""
+        mock_get_city.return_value = [
+            {"city_code": "NYC", "trade_count": 5, "net_pnl": 50, "win_count": 3, "loss_count": 2},
+        ]
+
+        # First call
+        response1 = api.get_city_metrics(city_code="NYC")
+        assert response1.success is True
+
+        # Second call should use cache
+        response2 = api.get_city_metrics(city_code="NYC")
+        assert response2.success is True
+
+        # Should only call the underlying function once
+        assert mock_get_city.call_count == 1
 
     @patch("src.analytics.rollups.get_city_metrics")
     def test_get_city_metrics_error(
@@ -131,6 +209,35 @@ class TestAnalyticsAPI:
         assert response.success is True
         assert response.data["summary"]["conversion_rate"] == 75.0
 
+    @patch("src.analytics.rollups.get_strategy_metrics")
+    def test_get_strategy_metrics_empty_results(
+        self,
+        mock_get_strategy: MagicMock,
+        api: AnalyticsAPI,
+    ) -> None:
+        """Test strategy metrics with empty results."""
+        mock_get_strategy.return_value = []
+
+        response = api.get_strategy_metrics()
+
+        assert response.success is True
+        assert response.data["summary"]["total_pnl"] == 0
+        assert response.data["summary"]["conversion_rate"] == 0
+
+    @patch("src.analytics.rollups.get_strategy_metrics")
+    def test_get_strategy_metrics_error(
+        self,
+        mock_get_strategy: MagicMock,
+        api: AnalyticsAPI,
+    ) -> None:
+        """Test strategy metrics query error handling."""
+        mock_get_strategy.side_effect = Exception("Strategy query failed")
+
+        response = api.get_strategy_metrics()
+
+        assert response.success is False
+        assert "Strategy query failed" in response.error
+
     @patch("src.analytics.rollups.get_equity_curve")
     def test_get_equity_curve_success(
         self,
@@ -165,6 +272,59 @@ class TestAnalyticsAPI:
         assert response.data["summary"]["trading_days"] == 2
         assert response.data["summary"]["total_return"] == 150.0
 
+    @patch("src.analytics.rollups.get_equity_curve")
+    def test_get_equity_curve_empty_results(
+        self,
+        mock_get_equity: MagicMock,
+        api: AnalyticsAPI,
+    ) -> None:
+        """Test equity curve with empty results."""
+        mock_get_equity.return_value = []
+
+        response = api.get_equity_curve()
+
+        assert response.success is True
+        assert response.data["summary"]["trading_days"] == 0
+        assert response.data["summary"]["total_return"] == 0
+        assert response.data["summary"]["max_drawdown"] == 0
+
+    @patch("src.analytics.rollups.get_equity_curve")
+    def test_get_equity_curve_error(
+        self,
+        mock_get_equity: MagicMock,
+        api: AnalyticsAPI,
+    ) -> None:
+        """Test equity curve query error handling."""
+        mock_get_equity.side_effect = Exception("Equity curve query failed")
+
+        response = api.get_equity_curve()
+
+        assert response.success is False
+        assert "Equity curve query failed" in response.error
+
+    @patch("src.analytics.rollups.get_equity_curve")
+    def test_get_equity_curve_uses_cache(
+        self,
+        mock_get_equity: MagicMock,
+        api: AnalyticsAPI,
+    ) -> None:
+        """Test equity curve uses cache on second call."""
+        mock_get_equity.return_value = [
+            {"date": date(2026, 1, 28), "starting_equity": 5000, "ending_equity": 5100,
+             "daily_pnl": 100, "cumulative_pnl": 100, "drawdown": 0, "drawdown_pct": 0},
+        ]
+
+        # First call
+        response1 = api.get_equity_curve()
+        assert response1.success is True
+
+        # Second call should use cache
+        response2 = api.get_equity_curve()
+        assert response2.success is True
+
+        # Should only call the underlying function once
+        assert mock_get_equity.call_count == 1
+
     @patch("src.shared.db.analytics.get_public_trades")
     def test_get_public_trades_success(
         self,
@@ -181,6 +341,20 @@ class TestAnalyticsAPI:
         assert response.success is True
         assert response.data["count"] == 1
         assert response.data["delay_minutes"] == 60
+
+    @patch("src.shared.db.analytics.get_public_trades")
+    def test_get_public_trades_error(
+        self,
+        mock_get_trades: MagicMock,
+        api: AnalyticsAPI,
+    ) -> None:
+        """Test public trades query error handling."""
+        mock_get_trades.side_effect = Exception("Trades query failed")
+
+        response = api.get_public_trades()
+
+        assert response.success is False
+        assert "Trades query failed" in response.error
 
     @patch("src.analytics.health.get_current_health")
     def test_get_health_status_success(
@@ -213,6 +387,20 @@ class TestAnalyticsAPI:
         assert response.data["overall_status"] == "healthy"
         assert len(response.data["components"]) == 1
 
+    @patch("src.analytics.health.get_current_health")
+    def test_get_health_status_error(
+        self,
+        mock_get_health: MagicMock,
+        api: AnalyticsAPI,
+    ) -> None:
+        """Test health status query error handling."""
+        mock_get_health.side_effect = Exception("Health check failed")
+
+        response = api.get_health_status()
+
+        assert response.success is False
+        assert "Health check failed" in response.error
+
     @patch("src.analytics.health.check_degraded_components")
     def test_get_degraded_components_success(
         self,
@@ -237,6 +425,20 @@ class TestAnalyticsAPI:
         assert response.success is True
         assert response.data["count"] == 1
         assert response.data["degraded_components"][0]["name"] == "weather_api"
+
+    @patch("src.analytics.health.check_degraded_components")
+    def test_get_degraded_components_error(
+        self,
+        mock_check_degraded: MagicMock,
+        api: AnalyticsAPI,
+    ) -> None:
+        """Test degraded components query error handling."""
+        mock_check_degraded.side_effect = Exception("Degraded check failed")
+
+        response = api.get_degraded_components()
+
+        assert response.success is False
+        assert "Degraded check failed" in response.error
 
     def test_get_dashboard_summary(self, api: AnalyticsAPI) -> None:
         """Test getting dashboard summary."""
@@ -268,6 +470,38 @@ class TestAnalyticsAPI:
             assert response.success is True
             assert response.data["overall_health"] == "healthy"
             assert response.data["city_summary"]["total_pnl"] == 100
+
+    def test_get_dashboard_summary_with_failures(self, api: AnalyticsAPI) -> None:
+        """Test dashboard summary handles sub-query failures gracefully."""
+        with patch.object(api, "get_city_metrics") as mock_city, \
+             patch.object(api, "get_strategy_metrics") as mock_strategy, \
+             patch.object(api, "get_equity_curve") as mock_equity, \
+             patch.object(api, "get_health_status") as mock_health:
+
+            # Some queries fail
+            mock_city.return_value = APIResponse(success=False, error="City query failed")
+            mock_strategy.return_value = APIResponse(success=False, error="Strategy query failed")
+            mock_equity.return_value = APIResponse(success=True, data={"summary": {"total_return": 100}})
+            mock_health.return_value = APIResponse(success=False, error="Health query failed")
+
+            response = api.get_dashboard_summary()
+
+            # Should still succeed overall
+            assert response.success is True
+            # Failed queries return empty dicts
+            assert response.data["city_summary"] == {}
+            assert response.data["strategy_summary"] == {}
+            assert response.data["overall_health"] == "unknown"
+
+    def test_get_dashboard_summary_error(self, api: AnalyticsAPI) -> None:
+        """Test dashboard summary handles exception."""
+        with patch.object(api, "get_city_metrics") as mock_city:
+            mock_city.side_effect = Exception("Unexpected error")
+
+            response = api.get_dashboard_summary()
+
+            assert response.success is False
+            assert "Unexpected error" in response.error
 
 
 class TestCreateAnalyticsAPI:

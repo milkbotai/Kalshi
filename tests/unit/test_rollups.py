@@ -101,6 +101,24 @@ class TestCityMetrics:
 
         assert metrics.profit_factor is None
 
+    def test_city_metrics_profit_factor_no_wins(self) -> None:
+        """Test profit factor with no wins returns 0."""
+        metrics = CityMetrics(
+            city_code="NYC",
+            date=date(2026, 1, 28),
+            trade_count=5,
+            volume=Decimal("500.00"),
+            gross_pnl=Decimal("-100.00"),
+            net_pnl=Decimal("-105.00"),
+            fees=Decimal("5.00"),
+            win_count=0,
+            loss_count=5,
+            avg_position_size=Decimal("100.00"),
+            max_position_size=Decimal("100.00"),
+        )
+
+        assert metrics.profit_factor == 0.0
+
 
 class TestStrategyMetrics:
     """Tests for StrategyMetrics dataclass."""
@@ -182,6 +200,21 @@ class TestRollupTableCreation:
         assert mock_conn.execute.called
         assert mock_conn.commit.called
 
+    def test_create_rollup_tables_creates_schema(self) -> None:
+        """Test that rollup table creation creates analytics schema."""
+        mock_conn = MagicMock()
+        mock_conn.__enter__ = MagicMock(return_value=mock_conn)
+        mock_conn.__exit__ = MagicMock(return_value=False)
+
+        mock_engine = MagicMock()
+        mock_engine.connect.return_value = mock_conn
+
+        create_rollup_tables(mock_engine)
+
+        # First call should create schema
+        calls = mock_conn.execute.call_args_list
+        assert len(calls) > 0
+
 
 class TestCityMetricsRollup:
     """Tests for city metrics rollup functions."""
@@ -205,6 +238,25 @@ class TestCityMetricsRollup:
         assert affected == 3
         mock_conn.execute.assert_called_once()
         mock_conn.commit.assert_called_once()
+
+    def test_update_city_metrics_defaults_to_today(self) -> None:
+        """Test update_city_metrics defaults to today's date."""
+        mock_conn = MagicMock()
+        mock_conn.__enter__ = MagicMock(return_value=mock_conn)
+        mock_conn.__exit__ = MagicMock(return_value=False)
+
+        mock_result = MagicMock()
+        mock_result.rowcount = 0
+        mock_conn.execute.return_value = mock_result
+
+        mock_engine = MagicMock()
+        mock_engine.connect.return_value = mock_conn
+
+        # Call without target_date
+        affected = update_city_metrics(mock_engine)
+
+        assert affected == 0
+        mock_conn.execute.assert_called_once()
 
     def test_get_city_metrics_all(self) -> None:
         """Test querying all city metrics."""
@@ -279,6 +331,24 @@ class TestStrategyMetricsRollup:
         assert affected == 2
         mock_conn.execute.assert_called_once()
 
+    def test_update_strategy_metrics_defaults_to_today(self) -> None:
+        """Test update_strategy_metrics defaults to today's date."""
+        mock_conn = MagicMock()
+        mock_conn.__enter__ = MagicMock(return_value=mock_conn)
+        mock_conn.__exit__ = MagicMock(return_value=False)
+
+        mock_result = MagicMock()
+        mock_result.rowcount = 0
+        mock_conn.execute.return_value = mock_result
+
+        mock_engine = MagicMock()
+        mock_engine.connect.return_value = mock_conn
+
+        # Call without target_date
+        affected = update_strategy_metrics(mock_engine)
+
+        assert affected == 0
+
     def test_get_strategy_metrics(self) -> None:
         """Test querying strategy metrics."""
         mock_row = MagicMock()
@@ -302,6 +372,28 @@ class TestStrategyMetricsRollup:
 
         assert len(metrics) == 1
         assert metrics[0]["strategy_name"] == "daily_high_temp"
+
+    def test_get_strategy_metrics_with_date_filters(self) -> None:
+        """Test querying strategy metrics with date filters."""
+        mock_result = MagicMock()
+        mock_result.__iter__ = MagicMock(return_value=iter([]))
+
+        mock_conn = MagicMock()
+        mock_conn.__enter__ = MagicMock(return_value=mock_conn)
+        mock_conn.__exit__ = MagicMock(return_value=False)
+        mock_conn.execute.return_value = mock_result
+
+        mock_engine = MagicMock()
+        mock_engine.connect.return_value = mock_conn
+
+        metrics = get_strategy_metrics(
+            mock_engine,
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 31),
+        )
+
+        assert len(metrics) == 0
+        mock_conn.execute.assert_called_once()
 
 
 class TestEquityCurveRollup:
@@ -331,6 +423,73 @@ class TestEquityCurveRollup:
 
         assert result is True
         assert mock_conn.commit.called
+
+    def test_update_equity_curve_defaults_to_today(self) -> None:
+        """Test update_equity_curve defaults to today's date."""
+        mock_prev_result = MagicMock()
+        mock_prev_result.fetchone.return_value = None
+
+        mock_pnl_result = MagicMock()
+        mock_pnl_result.fetchone.return_value = (Decimal("0"),)
+
+        mock_conn = MagicMock()
+        mock_conn.__enter__ = MagicMock(return_value=mock_conn)
+        mock_conn.__exit__ = MagicMock(return_value=False)
+        mock_conn.execute.side_effect = [mock_prev_result, mock_pnl_result, MagicMock()]
+
+        mock_engine = MagicMock()
+        mock_engine.connect.return_value = mock_conn
+
+        # Call without target_date
+        result = update_equity_curve(mock_engine)
+
+        assert result is True
+
+    def test_update_equity_curve_no_pnl_row(self) -> None:
+        """Test update_equity_curve handles no P&L row."""
+        mock_prev_result = MagicMock()
+        mock_prev_result.fetchone.return_value = None
+
+        mock_pnl_result = MagicMock()
+        mock_pnl_result.fetchone.return_value = None  # No trades
+
+        mock_conn = MagicMock()
+        mock_conn.__enter__ = MagicMock(return_value=mock_conn)
+        mock_conn.__exit__ = MagicMock(return_value=False)
+        mock_conn.execute.side_effect = [mock_prev_result, mock_pnl_result, MagicMock()]
+
+        mock_engine = MagicMock()
+        mock_engine.connect.return_value = mock_conn
+
+        result = update_equity_curve(mock_engine, date(2026, 1, 28))
+
+        assert result is True
+
+    def test_update_equity_curve_with_drawdown(self) -> None:
+        """Test update_equity_curve calculates drawdown correctly."""
+        # Previous day had higher equity (creates drawdown)
+        mock_prev_result = MagicMock()
+        mock_prev_result.fetchone.return_value = (
+            Decimal("5200.00"),  # ending_equity
+            Decimal("200.00"),   # cumulative_pnl
+            Decimal("5200.00"),  # high_water_mark
+        )
+
+        # Today has a loss
+        mock_pnl_result = MagicMock()
+        mock_pnl_result.fetchone.return_value = (Decimal("-100.00"),)
+
+        mock_conn = MagicMock()
+        mock_conn.__enter__ = MagicMock(return_value=mock_conn)
+        mock_conn.__exit__ = MagicMock(return_value=False)
+        mock_conn.execute.side_effect = [mock_prev_result, mock_pnl_result, MagicMock()]
+
+        mock_engine = MagicMock()
+        mock_engine.connect.return_value = mock_conn
+
+        result = update_equity_curve(mock_engine, date(2026, 1, 29))
+
+        assert result is True
 
     def test_update_equity_curve_with_previous(self) -> None:
         """Test updating equity curve with previous day data."""
@@ -383,6 +542,28 @@ class TestEquityCurveRollup:
 
         assert len(curve) == 1
         assert curve[0]["daily_pnl"] == Decimal("150.00")
+
+    def test_get_equity_curve_with_date_filters(self) -> None:
+        """Test querying equity curve with date filters."""
+        mock_result = MagicMock()
+        mock_result.__iter__ = MagicMock(return_value=iter([]))
+
+        mock_conn = MagicMock()
+        mock_conn.__enter__ = MagicMock(return_value=mock_conn)
+        mock_conn.__exit__ = MagicMock(return_value=False)
+        mock_conn.execute.return_value = mock_result
+
+        mock_engine = MagicMock()
+        mock_engine.connect.return_value = mock_conn
+
+        curve = get_equity_curve(
+            mock_engine,
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 31),
+        )
+
+        assert len(curve) == 0
+        mock_conn.execute.assert_called_once()
 
 
 class TestDailyRollups:

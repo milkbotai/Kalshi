@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from sqlalchemy.exc import OperationalError
 
-from src.shared.db.connection import DatabaseManager
+from src.shared.db.connection import DatabaseManager, get_db
 
 
 class TestDatabaseManager:
@@ -21,6 +21,24 @@ class TestDatabaseManager:
 
             assert db_manager.engine == mock_engine
             mock_create_engine.assert_called_once()
+
+    def test_database_manager_uses_settings_url(self) -> None:
+        """Test DatabaseManager uses URL from settings when not provided."""
+        with patch("src.shared.db.connection.create_engine") as mock_create_engine, \
+             patch("src.shared.db.connection.get_settings") as mock_get_settings:
+            mock_engine = MagicMock()
+            mock_create_engine.return_value = mock_engine
+
+            mock_settings = MagicMock()
+            mock_settings.database_url = "postgresql://settings:settings@localhost/settings"
+            mock_settings.db_pool_size = 5
+            mock_settings.db_max_overflow = 10
+            mock_settings.db_pool_timeout = 30
+            mock_get_settings.return_value = mock_settings
+
+            db_manager = DatabaseManager()
+
+            assert db_manager._database_url == "postgresql://settings:settings@localhost/settings"
 
     def test_health_check_success(self) -> None:
         """Test health check returns True when database is reachable."""
@@ -95,3 +113,56 @@ class TestDatabaseManager:
             db_manager.close()
 
             mock_engine.dispose.assert_called_once()
+
+    def test_engine_property(self) -> None:
+        """Test engine property returns the engine."""
+        with patch("src.shared.db.connection.create_engine") as mock_create_engine:
+            mock_engine = MagicMock()
+            mock_create_engine.return_value = mock_engine
+
+            db_manager = DatabaseManager(database_url="postgresql://test:test@localhost/test")
+
+            assert db_manager.engine is mock_engine
+
+
+class TestGetDb:
+    """Tests for get_db singleton function."""
+
+    def test_get_db_creates_singleton(self) -> None:
+        """Test get_db creates and returns singleton."""
+        import src.shared.db.connection as conn_module
+
+        # Reset the global
+        original = conn_module._db_manager
+        conn_module._db_manager = None
+
+        try:
+            with patch.object(conn_module, "DatabaseManager") as mock_class:
+                mock_instance = MagicMock()
+                mock_class.return_value = mock_instance
+
+                result1 = get_db()
+                result2 = get_db()
+
+                # Should only create once
+                assert mock_class.call_count == 1
+                assert result1 is mock_instance
+                assert result2 is mock_instance
+        finally:
+            # Reset for other tests
+            conn_module._db_manager = original
+
+    def test_get_db_returns_existing(self) -> None:
+        """Test get_db returns existing instance."""
+        import src.shared.db.connection as conn_module
+
+        original = conn_module._db_manager
+        mock_existing = MagicMock()
+        conn_module._db_manager = mock_existing
+
+        try:
+            result = get_db()
+            assert result is mock_existing
+        finally:
+            # Reset for other tests
+            conn_module._db_manager = original
