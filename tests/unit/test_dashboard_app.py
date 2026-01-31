@@ -18,6 +18,38 @@ from src.dashboard.app import (
 from src.dashboard.data import DashboardDataProvider, CityMarketData
 
 
+class MockSessionState:
+    """Custom mock for Streamlit session state that supports both dict and attribute access."""
+    
+    def __init__(self):
+        self._data = {}
+    
+    def __getitem__(self, key):
+        return self._data.get(key)
+    
+    def __setitem__(self, key, value):
+        self._data[key] = value
+    
+    def __contains__(self, key):
+        return key in self._data
+    
+    def get(self, key, default=None):
+        return self._data.get(key, default)
+    
+    def __getattr__(self, name):
+        if name.startswith('_'):
+            raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+        if name in self._data:
+            return self._data[name]
+        raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+    
+    def __setattr__(self, name, value):
+        if name.startswith('_'):
+            object.__setattr__(self, name, value)
+        else:
+            self._data[name] = value
+
+
 @pytest.fixture
 def mock_data_provider():
     """Create a mock data provider."""
@@ -134,37 +166,8 @@ def mock_data_provider():
 def mock_streamlit():
     """Mock streamlit session state and functions."""
     with patch("src.dashboard.app.st") as mock_st:
-        # Create a proper session state mock that behaves like a dict with attributes
-        session_state = {}
-        
-        def get_item(key):
-            return session_state.get(key)
-        
-        def set_item(key, value):
-            session_state[key] = value
-        
-        def contains(key):
-            return key in session_state
-        
-        mock_session_state = Mock()
-        mock_session_state.__getitem__ = Mock(side_effect=get_item)
-        mock_session_state.__setitem__ = Mock(side_effect=set_item)
-        mock_session_state.__contains__ = Mock(side_effect=contains)
-        mock_session_state.get = Mock(side_effect=lambda k, d=None: session_state.get(k, d))
-        
-        # Allow attribute access
-        def getattr_handler(name):
-            if name in session_state:
-                return session_state[name]
-            raise AttributeError(f"'{type(mock_session_state).__name__}' object has no attribute '{name}'")
-        
-        def setattr_handler(name, value):
-            session_state[name] = value
-        
-        mock_session_state.__getattr__ = Mock(side_effect=getattr_handler)
-        mock_session_state.__setattr__ = Mock(side_effect=setattr_handler)
-        
-        mock_st.session_state = mock_session_state
+        # Use custom session state class
+        mock_st.session_state = MockSessionState()
         
         # Mock UI elements
         mock_st.title = Mock()
@@ -237,7 +240,7 @@ class TestGetDataProvider:
     def test_returns_existing_provider_from_session(self, mock_streamlit, mock_data_provider):
         """Test that existing provider is returned from session state."""
         # Manually set the provider in session state
-        mock_streamlit.session_state.__setitem__("data_provider", mock_data_provider)
+        mock_streamlit.session_state.data_provider = mock_data_provider
         
         provider = get_data_provider()
         

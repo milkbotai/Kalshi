@@ -222,8 +222,9 @@ class TestRenderCityCard:
         # Check metric was called for temperature
         mock_streamlit.metric.assert_called()
         
-        # Check write was called for bid/ask, spread, volume, signal
-        assert mock_streamlit.write.call_count >= 3
+        # Check write was called for bid/ask, spread, volume
+        # Note: spread uses markdown, signal uses markdown, so write is called 2 times (bid/ask, volume)
+        assert mock_streamlit.write.call_count >= 2
         
         # Check divider was called
         mock_streamlit.divider.assert_called()
