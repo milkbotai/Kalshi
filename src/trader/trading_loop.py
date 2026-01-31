@@ -6,11 +6,11 @@ evaluate strategy → check gates → submit orders.
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from src.shared.api.kalshi import KalshiClient
 from src.shared.api.response_models import Market
-from src.shared.api.weather_cache import WeatherCache, get_weather_cache
+from src.shared.api.weather_cache import CachedWeather, WeatherCache, get_weather_cache
 from src.shared.config.cities import CityConfig, city_loader
 from src.shared.config.logging import get_logger
 from src.shared.config.settings import TradingMode, get_settings
@@ -19,6 +19,14 @@ from src.trader.oms import OrderManagementSystem, OrderState
 from src.trader.risk import CircuitBreaker, RiskCalculator
 from src.trader.strategies.daily_high_temp import DailyHighTempStrategy
 from src.trader.strategy import Signal
+
+if TYPE_CHECKING:
+    from src.shared.db.connection import DatabaseManager
+    from src.shared.db.repositories import (
+        MarketRepository,
+        SignalRepository,
+        WeatherRepository,
+    )
 
 logger = get_logger(__name__)
 
@@ -71,6 +79,10 @@ class TradingLoop:
         circuit_breaker: CircuitBreaker | None = None,
         strategy: DailyHighTempStrategy | None = None,
         trading_mode: TradingMode | None = None,
+        db_manager: "DatabaseManager | None" = None,
+        weather_repo: "WeatherRepository | None" = None,
+        market_repo: "MarketRepository | None" = None,
+        signal_repo: "SignalRepository | None" = None,
     ) -> None:
         """Initialize trading loop.
 
@@ -82,6 +94,10 @@ class TradingLoop:
             circuit_breaker: Circuit breaker instance
             strategy: Trading strategy instance
             trading_mode: Trading mode override (uses settings if not provided)
+            db_manager: Database manager for persistence (optional)
+            weather_repo: Weather repository for persistence (optional)
+            market_repo: Market repository for persistence (optional)
+            signal_repo: Signal repository for persistence (optional)
         """
         settings = get_settings()
 
@@ -91,6 +107,12 @@ class TradingLoop:
         self.risk_calculator = risk_calculator or RiskCalculator()
         self.circuit_breaker = circuit_breaker or CircuitBreaker()
         self.strategy = strategy or DailyHighTempStrategy()
+
+        # Repository integration (optional - enables persistence)
+        self.db_manager = db_manager
+        self.weather_repo = weather_repo
+        self.market_repo = market_repo
+        self.signal_repo = signal_repo
 
         # Track if LIVE mode was explicitly confirmed
         self._live_mode_confirmed = False
@@ -277,17 +299,34 @@ class TradingLoop:
             logger.debug("shadow_mode_no_market_fetch", city_code=city_code)
 
         # Step 3: Evaluate strategy for each market
-        signals: list[tuple[Signal, Market]] = []
+        signals: list[tuple[Signal, Market, int | None]] = []
+        weather_snapshot_id: int | None = None
 
         if cached_weather and cached_weather.forecast:
             # Build weather dict for strategy
             weather_data = self._build_weather_data(cached_weather.forecast, city_config)
 
+            # Persist weather snapshot
+            weather_snapshot_id = self._persist_weather(cached_weather, weather_data)
+
             for market in markets:
+                # Persist market snapshot
+                market_snapshot_id = self._persist_market(market, city_code)
+
                 try:
                     signal = self.strategy.evaluate(weather_data, market)
                     signals_generated += 1
-                    signals.append((signal, market))
+
+                    # Persist signal
+                    signal_id = self._persist_signal(
+                        signal,
+                        market,
+                        city_code,
+                        weather_snapshot_id=weather_snapshot_id,
+                        market_snapshot_id=market_snapshot_id,
+                    )
+
+                    signals.append((signal, market, signal_id))
 
                     logger.debug(
                         "signal_generated",
@@ -295,6 +334,7 @@ class TradingLoop:
                         decision=signal.decision,
                         p_yes=signal.p_yes,
                         edge=signal.edge,
+                        signal_id=signal_id,
                     )
                 except Exception as e:
                     errors.append(f"Strategy evaluation failed for {market.ticker}: {e}")
@@ -305,7 +345,7 @@ class TradingLoop:
                     )
 
         # Step 4: Check gates and submit orders
-        for signal, market in signals:
+        for signal, market, _signal_id in signals:
             if signal.decision == "HOLD":
                 continue
 
@@ -409,6 +449,160 @@ class TradingLoop:
                     break
 
         return weather_data
+
+    def _persist_weather(
+        self,
+        cached_weather: CachedWeather,
+        weather_data: dict[str, Any],
+    ) -> int | None:
+        """Persist weather snapshot to repository if configured.
+
+        Args:
+            cached_weather: Cached weather data from API
+            weather_data: Processed weather data for strategy
+
+        Returns:
+            Snapshot ID if saved, None if repositories not configured
+        """
+        if not self.weather_repo:
+            return None
+
+        try:
+            from src.shared.db.repositories.weather import WeatherSnapshotCreate
+
+            snapshot_data = WeatherSnapshotCreate(
+                city_code=weather_data["city_code"],
+                forecast_high=weather_data.get("temperature"),
+                current_temp=None,  # Extract from observation if available
+                is_stale=cached_weather.is_stale,
+                raw_forecast=cached_weather.forecast,
+                raw_observation=cached_weather.observation,
+            )
+
+            # Extract current temp from observation if available
+            if cached_weather.observation:
+                temp_data = cached_weather.observation.get("temperature", {})
+                if isinstance(temp_data, dict) and temp_data.get("value") is not None:
+                    snapshot_data.current_temp = float(temp_data["value"])
+
+            saved = self.weather_repo.save_snapshot(snapshot_data)
+            logger.debug(
+                "weather_persisted",
+                city_code=weather_data["city_code"],
+                snapshot_id=saved.id,
+            )
+            return saved.id
+        except Exception as e:
+            logger.warning(
+                "weather_persistence_failed",
+                city_code=weather_data["city_code"],
+                error=str(e),
+            )
+            return None
+
+    def _persist_market(
+        self,
+        market: Market,
+        city_code: str,
+    ) -> int | None:
+        """Persist market snapshot to repository if configured.
+
+        Args:
+            market: Market data from Kalshi API
+            city_code: City code for the market
+
+        Returns:
+            Snapshot ID if saved, None if repositories not configured
+        """
+        if not self.market_repo:
+            return None
+
+        try:
+            from src.shared.db.repositories.market import MarketSnapshotCreate
+
+            snapshot_data = MarketSnapshotCreate(
+                ticker=market.ticker,
+                city_code=city_code,
+                event_ticker=market.event_ticker,
+                yes_bid=market.yes_bid,
+                yes_ask=market.yes_ask,
+                volume=market.volume or 0,
+                open_interest=market.open_interest or 0,
+                status=market.status or "open",
+                strike_price=market.strike_price,
+            )
+
+            saved = self.market_repo.save_snapshot(snapshot_data)
+            logger.debug(
+                "market_persisted",
+                ticker=market.ticker,
+                snapshot_id=saved.id,
+            )
+            return saved.id
+        except Exception as e:
+            logger.warning(
+                "market_persistence_failed",
+                ticker=market.ticker,
+                error=str(e),
+            )
+            return None
+
+    def _persist_signal(
+        self,
+        signal: Signal,
+        market: Market,
+        city_code: str,
+        weather_snapshot_id: int | None = None,
+        market_snapshot_id: int | None = None,
+    ) -> int | None:
+        """Persist trading signal to repository if configured.
+
+        Args:
+            signal: Generated trading signal
+            market: Market the signal applies to
+            city_code: City code
+            weather_snapshot_id: ID of related weather snapshot
+            market_snapshot_id: ID of related market snapshot
+
+        Returns:
+            Signal ID if saved, None if repositories not configured
+        """
+        if not self.signal_repo:
+            return None
+
+        try:
+            from src.shared.db.repositories.signal import SignalCreate
+
+            signal_data = SignalCreate(
+                ticker=market.ticker,
+                city_code=city_code,
+                strategy_name=self.strategy.name,
+                side=signal.side,
+                decision=signal.decision,
+                p_yes=signal.p_yes,
+                uncertainty=signal.uncertainty,
+                edge=signal.edge,
+                max_price=signal.max_price,
+                weather_snapshot_id=weather_snapshot_id,
+                market_snapshot_id=market_snapshot_id,
+                trading_mode=self.trading_mode.value,
+            )
+
+            saved = self.signal_repo.save_signal(signal_data)
+            logger.debug(
+                "signal_persisted",
+                ticker=market.ticker,
+                signal_id=saved.id,
+                decision=signal.decision,
+            )
+            return saved.id
+        except Exception as e:
+            logger.warning(
+                "signal_persistence_failed",
+                ticker=market.ticker,
+                error=str(e),
+            )
+            return None
 
     def _submit_order(
         self,

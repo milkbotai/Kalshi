@@ -1,0 +1,13 @@
+[Unit]
+Description=Milkbot Analytics Rollup Timer
+Documentation=https://github.com/milkbot/kalshi
+
+[Timer]
+# Run daily at 1 AM ET (after market close)
+OnCalendar=*-*-* 01:00:00
+# Run missed jobs on boot
+Persistent=true
+Unit=milkbot-rollups.service
+
+[Install]
+WantedBy=timers.target

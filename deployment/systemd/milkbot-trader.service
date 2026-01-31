@@ -1,0 +1,40 @@
+[Unit]
+Description=Milkbot Trading Engine
+Documentation=https://github.com/milkbot/kalshi
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=milkbot
+Group=milkbot
+WorkingDirectory=/opt/milkbot
+Environment=PYTHONPATH=/opt/milkbot
+EnvironmentFile=/opt/milkbot/.env
+
+# Main trading loop - runs on timer schedule
+ExecStart=/opt/milkbot/venv/bin/python -m src.trader.trading_loop
+
+# Restart configuration
+Restart=on-failure
+RestartSec=30
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/opt/milkbot/data /var/log/milkbot
+
+# Resource limits
+MemoryMax=2G
+CPUQuota=50%
+
+# Logging
+StandardOutput=append:/var/log/milkbot/trader.log
+StandardError=append:/var/log/milkbot/trader-error.log
+
+[Install]
+WantedBy=multi-user.target

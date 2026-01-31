@@ -1,0 +1,442 @@
+openapi: 3.0.3
+info:
+  title: Milkbot Analytics API
+  description: |
+    Internal analytics API for the Milkbot Weather Trading Platform.
+
+    This API provides access to trading metrics, performance data, and system health.
+    All trade data is delayed by 60 minutes for public disclosure compliance.
+
+    **Note:** This API binds to localhost only and is not directly accessible from the internet.
+    Access is proxied through NGINX for the public dashboard.
+  version: 1.0.0
+  contact:
+    name: Milkbot Team
+    url: https://milkbot.ai
+  license:
+    name: Proprietary
+
+servers:
+  - url: http://127.0.0.1:8000
+    description: Local Analytics API
+
+tags:
+  - name: Metrics
+    description: Trading and performance metrics
+  - name: Trades
+    description: Trade feed (60-minute delayed)
+  - name: Health
+    description: System health status
+
+paths:
+  /v1/health:
+    get:
+      tags:
+        - Health
+      summary: System health status
+      description: Returns health status of all system components
+      operationId: getHealth
+      responses:
+        '200':
+          description: Health status retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+              example:
+                status: healthy
+                components:
+                  - name: database
+                    status: healthy
+                    last_check: "2026-01-29T12:00:00Z"
+                  - name: kalshi_api
+                    status: healthy
+                    last_check: "2026-01-29T12:00:00Z"
+                  - name: nws_api
+                    status: healthy
+                    last_check: "2026-01-29T12:00:00Z"
+                  - name: trader
+                    status: healthy
+                    last_check: "2026-01-29T12:00:00Z"
+        '503':
+          description: Service unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+
+  /v1/metrics/hero:
+    get:
+      tags:
+        - Metrics
+      summary: Hero metrics for dashboard
+      description: Returns top-level KPIs for the dashboard header
+      operationId: getHeroMetrics
+      responses:
+        '200':
+          description: Hero metrics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HeroMetrics'
+              example:
+                total_pnl: 1234.56
+                total_trades: 150
+                win_rate: 0.65
+                active_positions: 5
+                last_updated: "2026-01-29T12:00:00Z"
+
+  /v1/metrics/cities:
+    get:
+      tags:
+        - Metrics
+      summary: Per-city metrics
+      description: Returns performance metrics for all 10 cities
+      operationId: getCityMetrics
+      responses:
+        '200':
+          description: City metrics retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CityMetrics'
+              example:
+                - city_code: NYC
+                  city_name: New York
+                  trades: 25
+                  pnl: 156.78
+                  win_rate: 0.68
+                  current_temp: 42
+                  market_status: open
+                - city_code: CHI
+                  city_name: Chicago
+                  trades: 18
+                  pnl: 89.50
+                  win_rate: 0.61
+                  current_temp: 35
+                  market_status: open
+
+  /v1/metrics/strategy:
+    get:
+      tags:
+        - Metrics
+      summary: Strategy performance metrics
+      description: Returns performance breakdown by strategy type
+      operationId: getStrategyMetrics
+      parameters:
+        - name: days
+          in: query
+          description: Number of days to include
+          schema:
+            type: integer
+            default: 30
+            minimum: 1
+            maximum: 365
+      responses:
+        '200':
+          description: Strategy metrics retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StrategyMetrics'
+
+  /v1/trades/recent:
+    get:
+      tags:
+        - Trades
+      summary: Recent trades (60-minute delayed)
+      description: |
+        Returns recent trades with a mandatory 60-minute delay.
+        Trade data is sanitized to remove internal identifiers.
+      operationId: getRecentTrades
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of trades to return
+          schema:
+            type: integer
+            default: 100
+            minimum: 1
+            maximum: 500
+        - name: city
+          in: query
+          description: Filter by city code
+          schema:
+            type: string
+            pattern: '^[A-Z]{3}$'
+      responses:
+        '200':
+          description: Trades retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PublicTrade'
+              example:
+                - time: "2026-01-29T10:55:00Z"
+                  city: NYC
+                  market_type: daily_high
+                  side: yes
+                  quantity: 10
+                  price: 0.55
+                - time: "2026-01-29T10:50:00Z"
+                  city: CHI
+                  market_type: daily_high
+                  side: "no"
+                  quantity: 5
+                  price: 0.42
+
+  /v1/performance/equity:
+    get:
+      tags:
+        - Metrics
+      summary: Equity curve data
+      description: Returns portfolio equity over time for charting
+      operationId: getEquityCurve
+      parameters:
+        - name: days
+          in: query
+          description: Number of days of history
+          schema:
+            type: integer
+            default: 30
+            minimum: 1
+            maximum: 365
+      responses:
+        '200':
+          description: Equity curve retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EquityPoint'
+              example:
+                - timestamp: "2026-01-01T00:00:00Z"
+                  total_equity: 10000.00
+                  realized_pnl: 0.00
+                  unrealized_pnl: 0.00
+                - timestamp: "2026-01-29T00:00:00Z"
+                  total_equity: 11234.56
+                  realized_pnl: 1150.00
+                  unrealized_pnl: 84.56
+
+  /v1/dashboard/summary:
+    get:
+      tags:
+        - Metrics
+      summary: Dashboard summary
+      description: Returns all data needed for dashboard in single request
+      operationId: getDashboardSummary
+      responses:
+        '200':
+          description: Dashboard summary retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardSummary'
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      required:
+        - status
+        - components
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+          description: Overall system status
+        components:
+          type: array
+          items:
+            $ref: '#/components/schemas/ComponentHealth'
+
+    ComponentHealth:
+      type: object
+      required:
+        - name
+        - status
+      properties:
+        name:
+          type: string
+          description: Component name
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy, unknown]
+        last_check:
+          type: string
+          format: date-time
+        message:
+          type: string
+          description: Status message or error details
+
+    HeroMetrics:
+      type: object
+      properties:
+        total_pnl:
+          type: number
+          format: float
+          description: Total realized P&L in dollars
+        total_trades:
+          type: integer
+          description: Total number of completed trades
+        win_rate:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          description: Win rate as decimal (0.65 = 65%)
+        active_positions:
+          type: integer
+          description: Number of open positions
+        last_updated:
+          type: string
+          format: date-time
+
+    CityMetrics:
+      type: object
+      required:
+        - city_code
+        - city_name
+      properties:
+        city_code:
+          type: string
+          pattern: '^[A-Z]{3}$'
+          description: 3-letter city code
+        city_name:
+          type: string
+          description: Full city name
+        trades:
+          type: integer
+          description: Number of trades for this city
+        pnl:
+          type: number
+          format: float
+          description: P&L for this city
+        win_rate:
+          type: number
+          format: float
+        current_temp:
+          type: integer
+          description: Current temperature in Fahrenheit
+        forecast_high:
+          type: integer
+          description: Forecast high temperature
+        market_status:
+          type: string
+          enum: [open, closed, halted]
+
+    StrategyMetrics:
+      type: object
+      properties:
+        strategy_name:
+          type: string
+          description: Strategy identifier
+        date:
+          type: string
+          format: date
+        signals_generated:
+          type: integer
+        trades_executed:
+          type: integer
+        edge_realized:
+          type: number
+          format: float
+          description: Realized edge (fill price - predicted probability)
+
+    PublicTrade:
+      type: object
+      description: |
+        Public trade record with 60-minute delay.
+        Internal identifiers (order_id, intent_key) are excluded.
+      properties:
+        time:
+          type: string
+          format: date-time
+          description: Trade time (rounded to minute)
+        city:
+          type: string
+          pattern: '^[A-Z]{3}$'
+        market_type:
+          type: string
+          enum: [daily_high, daily_low, monthly_rain, monthly_snow]
+        side:
+          type: string
+          enum: [yes, "no"]
+        quantity:
+          type: integer
+          minimum: 1
+        price:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          description: Fill price as decimal (0.55 = 55 cents)
+
+    EquityPoint:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        total_equity:
+          type: number
+          format: float
+        realized_pnl:
+          type: number
+          format: float
+        unrealized_pnl:
+          type: number
+          format: float
+
+    DashboardSummary:
+      type: object
+      properties:
+        hero:
+          $ref: '#/components/schemas/HeroMetrics'
+        cities:
+          type: array
+          items:
+            $ref: '#/components/schemas/CityMetrics'
+        recent_trades:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicTrade'
+        health:
+          $ref: '#/components/schemas/HealthStatus'
+        generated_at:
+          type: string
+          format: date-time
+
+  responses:
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+              detail:
+                type: string
+
+    RateLimited:
+      description: Rate limit exceeded
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+              retry_after:
+                type: integer
+                description: Seconds until rate limit resets

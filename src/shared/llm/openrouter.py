@@ -248,7 +248,7 @@ class OpenRouterClient:
         # All retries exhausted
         if last_error:
             raise last_error
-        raise OpenRouterError("All retries exhausted")
+        raise OpenRouterError("All retries exhausted")  # pragma: no cover
 
     def _parse_response(self, data: dict[str, Any], latency_ms: float) -> LLMResponse:
         """Parse API response into LLMResponse.

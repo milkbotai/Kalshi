@@ -1,0 +1,45 @@
+[Unit]
+Description=Milkbot Public Dashboard (Streamlit)
+Documentation=https://github.com/milkbot/kalshi
+After=network.target milkbot-analytics.service
+Wants=milkbot-analytics.service
+
+[Service]
+Type=simple
+User=milkbot
+Group=milkbot
+WorkingDirectory=/opt/milkbot
+Environment=PYTHONPATH=/opt/milkbot
+EnvironmentFile=/opt/milkbot/.env
+
+# Streamlit dashboard - binds to localhost only (NGINX proxies)
+ExecStart=/opt/milkbot/venv/bin/streamlit run src/dashboard/app.py \
+    --server.port=8501 \
+    --server.address=127.0.0.1 \
+    --server.headless=true \
+    --browser.gatherUsageStats=false \
+    --theme.base=dark
+
+# Restart configuration
+Restart=always
+RestartSec=5
+StartLimitIntervalSec=300
+StartLimitBurst=10
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/opt/milkbot/data /var/log/milkbot
+
+# Resource limits
+MemoryMax=1G
+CPUQuota=25%
+
+# Logging
+StandardOutput=append:/var/log/milkbot/dashboard.log
+StandardError=append:/var/log/milkbot/dashboard-error.log
+
+[Install]
+WantedBy=multi-user.target

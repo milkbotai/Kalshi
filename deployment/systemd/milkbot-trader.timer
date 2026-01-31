@@ -1,0 +1,16 @@
+[Unit]
+Description=Milkbot Trading Engine Timer
+Documentation=https://github.com/milkbot/kalshi
+
+[Timer]
+# Run every 5 minutes during market hours (6 AM - 11 PM ET)
+OnCalendar=*-*-* 06..23:00/5:00
+# Also run at startup after 30 second delay
+OnBootSec=30s
+# Randomize start time by up to 30 seconds to avoid thundering herd
+RandomizedDelaySec=30
+Persistent=true
+Unit=milkbot-trader.service
+
+[Install]
+WantedBy=timers.target

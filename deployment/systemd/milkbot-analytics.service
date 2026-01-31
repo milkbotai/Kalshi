@@ -1,0 +1,40 @@
+[Unit]
+Description=Milkbot Analytics Service
+Documentation=https://github.com/milkbot/kalshi
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=milkbot
+Group=milkbot
+WorkingDirectory=/opt/milkbot
+Environment=PYTHONPATH=/opt/milkbot
+EnvironmentFile=/opt/milkbot/.env
+
+# Analytics API server
+ExecStart=/opt/milkbot/venv/bin/python -m uvicorn src.analytics.api:app --host 127.0.0.1 --port 8000
+
+# Restart configuration
+Restart=always
+RestartSec=10
+StartLimitIntervalSec=300
+StartLimitBurst=10
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/opt/milkbot/data /var/log/milkbot
+
+# Resource limits
+MemoryMax=1G
+CPUQuota=25%
+
+# Logging
+StandardOutput=append:/var/log/milkbot/analytics.log
+StandardError=append:/var/log/milkbot/analytics-error.log
+
+[Install]
+WantedBy=multi-user.target

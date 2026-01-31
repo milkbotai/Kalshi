@@ -1,0 +1,45 @@
+# Milkbot Log Rotation Configuration
+# Place in /etc/logrotate.d/milkbot
+
+/var/log/milkbot/*.log {
+    daily
+    rotate 30
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 0640 milkbot milkbot
+    sharedscripts
+    postrotate
+        # Reload services to reopen log files
+        systemctl reload milkbot-trader.service 2>/dev/null || true
+        systemctl reload milkbot-analytics.service 2>/dev/null || true
+        systemctl reload milkbot-dashboard.service 2>/dev/null || true
+    endscript
+}
+
+/var/log/milkbot/*-error.log {
+    daily
+    rotate 90
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 0640 milkbot milkbot
+}
+
+# Archive old logs to S3/B2 before deletion
+/var/log/milkbot/*.gz {
+    monthly
+    rotate 12
+    missingok
+    notifempty
+    lastaction
+        # Archive to cloud storage (customize bucket name)
+        if command -v aws &> /dev/null; then
+            for f in /var/log/milkbot/*.gz; do
+                aws s3 cp "$f" "s3://milkbot-logs/$(date +%Y/%m)/$(basename $f)" 2>/dev/null || true
+            done
+        fi
+    endscript
+}

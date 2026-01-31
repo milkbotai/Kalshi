@@ -1,0 +1,30 @@
+[Unit]
+Description=Milkbot Analytics Rollup Jobs
+Documentation=https://github.com/milkbot/kalshi
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=oneshot
+User=milkbot
+Group=milkbot
+WorkingDirectory=/opt/milkbot
+Environment=PYTHONPATH=/opt/milkbot
+EnvironmentFile=/opt/milkbot/.env
+
+# Run daily rollup aggregations
+ExecStart=/opt/milkbot/venv/bin/python -c "from src.analytics.rollups import run_daily_rollups; run_daily_rollups()"
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/opt/milkbot/data /var/log/milkbot
+
+# Logging
+StandardOutput=append:/var/log/milkbot/rollups.log
+StandardError=append:/var/log/milkbot/rollups-error.log
+
+[Install]
+WantedBy=multi-user.target

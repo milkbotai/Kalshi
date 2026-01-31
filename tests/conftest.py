@@ -5,6 +5,38 @@ import os
 import pytest
 
 
+def pytest_configure(config: pytest.Config) -> None:
+    """Register custom markers."""
+    config.addinivalue_line(
+        "markers", "requires_db: mark test as requiring database connection"
+    )
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    """Skip tests marked with requires_db if no database is available."""
+    skip_db = pytest.mark.skip(reason="Database not available")
+
+    # Check if database is available
+    db_available = False
+    try:
+        import psycopg2
+        conn = psycopg2.connect(
+            host="localhost",
+            database="milkbot_test",
+            user="milkbot",
+            connect_timeout=2,
+        )
+        conn.close()
+        db_available = True
+    except Exception:
+        pass
+
+    if not db_available:
+        for item in items:
+            if "requires_db" in item.keywords:
+                item.add_marker(skip_db)
+
+
 @pytest.fixture(autouse=True)
 def reset_settings_env() -> None:
     """Reset environment variables before each test."""

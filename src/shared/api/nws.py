@@ -127,7 +127,7 @@ class NWSClient:
                 raise
 
         # Should never reach here, but satisfy type checker
-        raise requests.HTTPError("Max retries exceeded")
+        raise requests.HTTPError("Max retries exceeded")  # pragma: no cover
 
     def get_forecast(self, office: str, grid_x: int, grid_y: int) -> dict[str, Any]:
         """Get forecast for a grid point.

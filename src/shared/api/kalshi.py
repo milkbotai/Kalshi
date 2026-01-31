@@ -202,7 +202,7 @@ class KalshiClient:
                 logger.error("kalshi_request_error", url=url, error=str(e))
                 raise
 
-        raise requests.HTTPError("Max retries exceeded")
+        raise requests.HTTPError("Max retries exceeded")  # pragma: no cover
 
     def get_markets(
         self,

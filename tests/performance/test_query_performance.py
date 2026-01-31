@@ -1,6 +1,7 @@
 """Performance tests for critical database queries.
 
 Tests query performance and establishes baselines for regression detection.
+These tests require a running PostgreSQL database.
 """
 
 import time
@@ -14,6 +15,7 @@ from sqlalchemy.engine import Engine
 from src.shared.db.connection import DatabaseManager
 
 
+@pytest.mark.requires_db
 class TestQueryPerformance:
     """Performance tests for database queries."""
 
@@ -26,15 +28,15 @@ class TestQueryPerformance:
     def test_city_metrics_query_performance(self, engine: Engine) -> None:
         """Test city metrics query performance."""
         query = text("""
-            SELECT 
+            SELECT
                 city_code,
-                COUNT(*) as trade_count,
+                COUNT(*) as fill_count,
                 SUM(realized_pnl) as total_pnl,
                 AVG(realized_pnl) as avg_pnl
-            FROM ops.trades
+            FROM ops.fills
             WHERE created_at >= :start_date
             GROUP BY city_code
-            ORDER BY total_pnl DESC
+            ORDER BY total_pnl DESC NULLS LAST
         """)
 
         start_date = date.today() - timedelta(days=30)
@@ -49,43 +51,42 @@ class TestQueryPerformance:
         assert elapsed < 0.1, f"Query took {elapsed:.3f}s, expected < 0.1s"
         print(f"City metrics query: {elapsed*1000:.1f}ms ({len(rows)} rows)")
 
-    def test_equity_curve_query_performance(self, engine: Engine) -> None:
-        """Test equity curve query performance."""
+    def test_positions_summary_query_performance(self, engine: Engine) -> None:
+        """Test positions summary query performance."""
         query = text("""
-            SELECT 
-                date,
-                ending_equity,
-                daily_pnl,
-                cumulative_pnl
-            FROM analytics.equity_curve
-            WHERE date >= :start_date
-            ORDER BY date ASC
+            SELECT
+                city_code,
+                COUNT(*) as position_count,
+                SUM(quantity) as total_quantity,
+                SUM(unrealized_pnl) as total_unrealized_pnl
+            FROM ops.positions
+            WHERE is_closed = false
+            GROUP BY city_code
+            ORDER BY total_unrealized_pnl DESC NULLS LAST
         """)
-
-        start_date = date.today() - timedelta(days=90)
 
         start_time = time.time()
         with engine.connect() as conn:
-            result = conn.execute(query, {"start_date": start_date})
+            result = conn.execute(query)
             rows = result.fetchall()
         elapsed = time.time() - start_time
 
-        # Should complete in under 50ms for 90 days
+        # Should complete in under 50ms
         assert elapsed < 0.05, f"Query took {elapsed:.3f}s, expected < 0.05s"
-        print(f"Equity curve query: {elapsed*1000:.1f}ms ({len(rows)} rows)")
+        print(f"Positions summary query: {elapsed*1000:.1f}ms ({len(rows)} rows)")
 
     def test_public_trades_query_performance(self, engine: Engine) -> None:
-        """Test public trades query with 60-minute delay."""
+        """Test public fills query with 60-minute delay."""
         query = text("""
-            SELECT 
-                t.ticker,
-                t.side,
-                t.quantity,
-                t.price,
-                t.created_at
-            FROM ops.trades t
-            WHERE t.created_at <= NOW() - INTERVAL '60 minutes'
-            ORDER BY t.created_at DESC
+            SELECT
+                f.ticker,
+                f.side,
+                f.quantity,
+                f.price,
+                f.created_at
+            FROM ops.fills f
+            WHERE f.created_at <= NOW() - INTERVAL '60 minutes'
+            ORDER BY f.created_at DESC
             LIMIT 100
         """)
 
@@ -102,13 +103,13 @@ class TestQueryPerformance:
     def test_health_status_query_performance(self, engine: Engine) -> None:
         """Test health status query performance."""
         query = text("""
-            SELECT 
-                component,
+            SELECT
+                component_name,
                 status,
                 last_check,
                 message
-            FROM ops.health_status
-            ORDER BY last_check DESC
+            FROM ops.component_health
+            ORDER BY last_check DESC NULLS LAST
         """)
 
         start_time = time.time()
@@ -147,6 +148,7 @@ class TestQueryPerformance:
         print(f"Strategy metrics query: {elapsed*1000:.1f}ms ({len(rows)} rows)")
 
 
+@pytest.mark.requires_db
 class TestCachePerformance:
     """Performance tests for caching layer."""
 

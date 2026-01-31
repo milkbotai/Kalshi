@@ -20,10 +20,10 @@ class TestKalshiCoverageGaps:
 
     @patch("requests.Session.request")
     @patch("requests.Session.post")
-    def test_get_market_typed_returns_none_on_empty_ticker(
+    def test_get_market_typed_returns_market_on_empty_ticker(
         self, mock_post: MagicMock, mock_request: MagicMock
     ) -> None:
-        """Test get_market_typed returns None when ticker is empty."""
+        """Test get_market_typed returns Market even with empty ticker."""
         from src.shared.api.kalshi import KalshiClient
 
         # Mock auth
@@ -34,15 +34,16 @@ class TestKalshiCoverageGaps:
 
         mock_response = MagicMock()
         mock_response.status_code = 200
-        # Return market with empty ticker - will fail validation
-        mock_response.json.return_value = {"market": {"ticker": ""}}
+        # Return market with empty ticker - Pydantic allows empty string
+        mock_response.json.return_value = {"market": {"ticker": "", "event_ticker": "", "title": ""}}
         mock_request.return_value = mock_response
 
         client = KalshiClient(api_key="test", api_secret="test")
         market = client.get_market_typed("TEST")
 
-        # Empty ticker should cause parse to return None
-        assert market is None
+        # Empty ticker is valid, returns Market with empty ticker
+        assert market is not None
+        assert market.ticker == ""
 
     @patch("requests.Session.request")
     @patch("requests.Session.post")
