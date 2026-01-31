@@ -208,8 +208,10 @@ def mock_streamlit():
         
         mock_st.tabs = Mock(return_value=[create_tab_mock() for _ in range(4)])
         
-        # Mock sidebar
+        # Mock sidebar - needs to be a context manager
         mock_sidebar = Mock()
+        mock_sidebar.__enter__ = Mock(return_value=mock_sidebar)
+        mock_sidebar.__exit__ = Mock(return_value=False)
         mock_sidebar.header = Mock()
         mock_sidebar.checkbox = Mock(return_value=True)
         mock_sidebar.button = Mock(return_value=False)
