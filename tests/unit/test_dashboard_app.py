@@ -1,9 +1,8 @@
 """Tests for dashboard app module."""
 
 import pytest
-from datetime import date, datetime, timedelta, timezone
-from unittest.mock import Mock, patch, MagicMock
-import streamlit as st
+from datetime import datetime, timezone
+from unittest.mock import Mock, patch
 
 from src.dashboard.app import (
     get_data_provider,
