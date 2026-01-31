@@ -1,17 +1,23 @@
 """Data provider for dashboard.
 
 Provides data access layer for the Streamlit dashboard,
-connecting to the analytics API and caching results.
+connecting to the analytics API and NWS weather data.
 """
 
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
+import requests
+
 from src.shared.config.cities import city_loader
 from src.shared.config.logging import get_logger
 
 logger = get_logger(__name__)
+
+# NWS API settings
+NWS_USER_AGENT = "Milkbot/1.0 (contact@milkbot.ai)"
+NWS_TIMEOUT = 10  # seconds
 
 
 @dataclass
@@ -29,6 +35,8 @@ class CityMarketData:
     open_interest: int | None = None
     last_signal: str | None = None
     last_signal_time: datetime | None = None
+    weather_updated_at: datetime | None = None
+    weather_stale: bool = False
 
 
 @dataclass
@@ -84,8 +92,46 @@ class DashboardDataProvider:
             # Fallback to hardcoded list
             return ["NYC", "LAX", "CHI", "MIA", "DFW", "DEN", "PHX", "SEA", "ATL", "BOS"]
 
+    def _fetch_nws_observation(self, station_id: str) -> tuple[float | None, datetime | None]:
+        """Fetch current observation from NWS for a station.
+        
+        Args:
+            station_id: ICAO station code (e.g., KORD, KJFK)
+            
+        Returns:
+            Tuple of (temperature_fahrenheit, observation_timestamp)
+        """
+        try:
+            url = f"https://api.weather.gov/stations/{station_id}/observations/latest"
+            headers = {"User-Agent": NWS_USER_AGENT}
+            response = requests.get(url, headers=headers, timeout=NWS_TIMEOUT)
+            
+            if response.status_code == 200:
+                props = response.json().get("properties", {})
+                temp_c = props.get("temperature", {}).get("value")
+                timestamp_str = props.get("timestamp")
+                
+                temp_f = None
+                if temp_c is not None:
+                    temp_f = round(temp_c * 9/5 + 32, 1)
+                
+                obs_time = None
+                if timestamp_str:
+                    try:
+                        obs_time = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
+                    except Exception:
+                        pass
+                
+                return temp_f, obs_time
+            else:
+                logger.warning("nws_observation_error", station=station_id, status=response.status_code)
+                return None, None
+        except Exception as e:
+            logger.warning("nws_observation_exception", station=station_id, error=str(e))
+            return None, None
+
     def get_city_market_data(self) -> list[CityMarketData]:
-        """Get market data for all cities.
+        """Get market data for all cities with real NWS weather.
 
         Returns:
             List of CityMarketData for all 10 cities
@@ -94,35 +140,51 @@ class DashboardDataProvider:
         if self._is_cache_valid(self._cache.city_market_data_time):
             return self._cache.city_market_data
 
-        # Generate sample data for testing
-        # In production, this would call the analytics API
         city_codes = self.get_city_codes()
         market_data = []
+        now = datetime.now(timezone.utc)
 
         for city_code in city_codes:
             try:
                 city_config = city_loader.get_city(city_code)
                 city_name = city_config.name if city_config else city_code
+                station_id = city_config.settlement_station if city_config else None
             except Exception:
                 city_name = city_code
+                station_id = None
 
-            # Sample data (would come from API)
+            # Fetch real weather from NWS
+            current_temp = None
+            weather_time = None
+            weather_stale = False
+            
+            if station_id:
+                current_temp, weather_time = self._fetch_nws_observation(station_id)
+                if weather_time:
+                    age_minutes = (now - weather_time).total_seconds() / 60
+                    # NWS updates hourly, so >90 minutes is stale
+                    weather_stale = age_minutes > 90
+            
+            # Market data (placeholder - would come from Kalshi API in production)
+            # For now, generate sensible placeholder until trader populates DB
             import random
+            random.seed(hash(city_code + now.strftime("%Y%m%d%H")))  # Stable within the hour
+            
             market_data.append(
                 CityMarketData(
                     city_code=city_code,
                     city_name=city_name,
-                    current_temp=random.randint(25, 85),
-                    high_threshold=random.randint(35, 75),
-                    yes_bid=random.randint(30, 70),
-                    yes_ask=random.randint(35, 75),
-                    spread=random.randint(2, 10),
-                    volume=random.randint(500, 5000),
-                    open_interest=random.randint(10000, 50000),
-                    last_signal=random.choice(["BUY", "SELL", "HOLD", None]),
-                    last_signal_time=datetime.now(timezone.utc) - timedelta(
-                        minutes=random.randint(0, 120)
-                    ),
+                    current_temp=current_temp,
+                    high_threshold=None,
+                    yes_bid=random.randint(35, 65),
+                    yes_ask=random.randint(40, 70),
+                    spread=random.randint(2, 6),
+                    volume=random.randint(800, 4000),
+                    open_interest=random.randint(15000, 45000),
+                    last_signal=random.choice(["BUY", "SELL", "HOLD"]),
+                    last_signal_time=now - timedelta(minutes=random.randint(5, 60)),
+                    weather_updated_at=weather_time,
+                    weather_stale=weather_stale,
                 )
             )
 

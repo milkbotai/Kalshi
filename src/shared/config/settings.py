@@ -50,14 +50,23 @@ class Settings(BaseSettings):
         description="Trading mode: shadow (no trades), demo, or live",
     )
 
-    # Kalshi API
+    # Kalshi API (RSA Key Authentication)
+    kalshi_api_key_id: str | None = Field(
+        default=None,
+        description="Kalshi API key ID for RSA authentication",
+    )
+    kalshi_private_key_path: str | None = Field(
+        default=None,
+        description="Path to Kalshi RSA private key file (.pem)",
+    )
+    # Legacy email/password (deprecated)
     kalshi_api_key: str | None = Field(
         default=None,
-        description="Kalshi API key for authentication",
+        description="Kalshi API key (deprecated, use kalshi_api_key_id)",
     )
     kalshi_api_secret: str | None = Field(
         default=None,
-        description="Kalshi API secret for authentication",
+        description="Kalshi API secret (deprecated)",
     )
     kalshi_base_url: str = Field(
         default="https://api.kalshi.com/v1",

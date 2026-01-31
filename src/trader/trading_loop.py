@@ -1027,3 +1027,47 @@ class MultiCityOrchestrator:
             }
 
         return summary
+
+
+# Entry point for running as module
+if __name__ == "__main__":
+    import sys
+    import time
+    
+    logger.info("trading_loop_starting")
+    settings = get_settings()
+    
+    # Initialize trading loop
+    try:
+        orchestrator = MultiCityOrchestrator(
+            city_codes=["NYC", "CHI", "LAX", "MIA", "AUS", "DEN", "PHL", "BOS", "SEA", "SFO"],
+            trading_mode=settings.trading_mode,
+        )
+        logger.info(
+            "orchestrator_initialized",
+            trading_mode=settings.trading_mode.value,
+            cities=len(orchestrator.city_codes),
+        )
+    except Exception as e:
+        logger.error("orchestrator_init_failed", error=str(e))
+        sys.exit(1)
+    
+    # Run continuous trading loop
+    while True:
+        try:
+            result = orchestrator.run_all_cities()
+            summary = orchestrator.get_run_summary(result)
+            logger.info("trading_cycle_completed", **summary)
+            
+            # Sleep between cycles (configurable, default 5 minutes)
+            cycle_interval = 300  # seconds
+            logger.info("sleeping_until_next_cycle", seconds=cycle_interval)
+            time.sleep(cycle_interval)
+            
+        except KeyboardInterrupt:
+            logger.info("trading_loop_interrupted")
+            break
+        except Exception as e:
+            logger.error("trading_cycle_error", error=str(e))
+            # Sleep on error to avoid tight loop
+            time.sleep(60)

@@ -49,49 +49,80 @@ def render_city_grid(city_data: list[CityMarketData]) -> None:
 
 
 def render_city_card(city: CityMarketData) -> None:
-    """Render a single city card.
+    """Render a single city card with centered 2x2 grid layout.
 
     Args:
         city: CityMarketData for the city
     """
-    # Card container
-    with st.container():
-        # City header
-        st.markdown(f"### {city.city_code}")
-        st.caption(city.city_name)
-
-        # Temperature
-        if city.current_temp is not None:
-            st.metric("Current Temp", f"{city.current_temp}°F")
-        else:
-            st.metric("Current Temp", "N/A")
-
-        # Market data
-        col1, col2 = st.columns(2)
-
-        with col1:
-            if city.yes_bid is not None and city.yes_ask is not None:
-                st.write(f"**Bid/Ask:** {city.yes_bid}¢/{city.yes_ask}¢")
-            else:
-                st.write("**Bid/Ask:** N/A")
-
-        with col2:
-            if city.spread is not None:
-                spread_color = "green" if city.spread <= 3 else "orange" if city.spread <= 5 else "red"
-                st.markdown(f"**Spread:** <span style='color:{spread_color}'>{city.spread}¢</span>", unsafe_allow_html=True)
-            else:
-                st.write("**Spread:** N/A")
-
-        # Volume and OI
-        if city.volume is not None:
-            st.write(f"**Volume:** {city.volume:,}")
-
-        # Last signal
-        if city.last_signal:
-            signal_color = "green" if city.last_signal == "BUY" else "red" if city.last_signal == "SELL" else "gray"
-            st.markdown(f"**Signal:** <span style='color:{signal_color}'>{city.last_signal}</span>", unsafe_allow_html=True)
-
-        st.divider()
+    from datetime import datetime, timezone, timedelta
+    
+    # Spread value and color class
+    spread_val = city.spread if city.spread is not None else 0
+    spread_text = f"{spread_val}¢" if city.spread is not None else "—"
+    # Spread color classes: tight (0-3), medium (4-6), wide (7+)
+    if spread_val <= 3:
+        spread_class = "spread-tight"
+    elif spread_val <= 6:
+        spread_class = "spread-medium"
+    else:
+        spread_class = "spread-wide"
+    
+    volume_text = f"{city.volume:,}" if city.volume is not None else "—"
+    
+    # Signal with color class
+    signal = city.last_signal if city.last_signal else "HOLD"
+    signal_class = "signal-buy" if signal == "BUY" else "signal-sell" if signal == "SELL" else "signal-hold"
+    
+    # Temperature display
+    if city.current_temp is not None:
+        temp_text = f"{city.current_temp:.0f}°F"
+    else:
+        temp_text = "—"
+    
+    # Weather freshness indicator
+    stale_warning = ""
+    if city.weather_stale:
+        stale_warning = '<div style="color: #ef4444; font-size: 13px; margin-top: 0.25rem;">⚠️ STALE</div>'
+    elif city.weather_updated_at:
+        age_min = int((datetime.now(timezone.utc) - city.weather_updated_at).total_seconds() / 60)
+        stale_warning = f'<div style="color: #9ca3af; font-size: 13px; margin-top: 0.25rem;">{age_min}m ago</div>'
+    
+    # Format bid/ask separately for flexbox display
+    bid_val = f"{city.yes_bid}¢" if city.yes_bid is not None else "—"
+    ask_val = f"{city.yes_ask}¢" if city.yes_ask is not None else "—"
+    
+    # Render custom HTML card with sophisticated color palette
+    card_html = f"""
+    <div class="city-card">
+        <h3>{city.city_code}</h3>
+        <div class="city-name">{city.city_name}</div>
+        <div class="city-temp">{temp_text}</div>
+        {stale_warning}
+        <div style="margin-top: 1rem;" class="stat-grid">
+            <div class="stat-item">
+                <div class="stat-label">Bid / Ask</div>
+                <div class="stat-value" style="display: flex; gap: 8px; justify-content: center; align-items: center;">
+                    <span>{bid_val}</span>
+                    <span style="color: #9ca3af;">/</span>
+                    <span>{ask_val}</span>
+                </div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">Spread</div>
+                <div class="stat-value {spread_class}">{spread_text}</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">Volume</div>
+                <div class="stat-value volume-value">{volume_text}</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">Signal</div>
+                <div class="stat-value {signal_class}">{signal}</div>
+            </div>
+        </div>
+    </div>
+    """
+    st.markdown(card_html, unsafe_allow_html=True)
 
 
 def render_equity_chart(equity_data: list[dict[str, Any]]) -> None:
@@ -162,7 +193,7 @@ def render_equity_chart(equity_data: list[dict[str, Any]]) -> None:
         margin=dict(l=0, r=0, t=30, b=0),
     )
 
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width='stretch')
 
     # Summary metrics below chart
     col1, col2, col3, col4 = st.columns(4)
@@ -226,7 +257,7 @@ def render_trade_feed(trades: list[dict[str, Any]]) -> None:
     # Display as table
     st.dataframe(
         df_display,
-        use_container_width=True,
+        width='stretch',
         hide_index=True,
         height=400,
     )
@@ -263,7 +294,7 @@ def render_performance_heatmap(city_metrics: list[dict[str, Any]]) -> None:
         margin=dict(l=0, r=0, t=30, b=0),
     )
 
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width='stretch')
 
     # Summary table
     st.subheader("City Breakdown")
