@@ -208,15 +208,24 @@ def mock_streamlit():
         
         mock_st.tabs = Mock(return_value=[create_tab_mock() for _ in range(4)])
         
-        # Mock sidebar - needs to be a context manager
+        # Mock sidebar - needs to be a context manager with methods available on the returned object
+        mock_sidebar_context = Mock()
+        mock_sidebar_context.header = Mock()
+        mock_sidebar_context.checkbox = Mock(return_value=True)
+        mock_sidebar_context.button = Mock(return_value=False)
+        mock_sidebar_context.divider = Mock()
+        mock_sidebar_context.caption = Mock()
+        
         mock_sidebar = Mock()
-        mock_sidebar.__enter__ = Mock(return_value=mock_sidebar)
+        mock_sidebar.__enter__ = Mock(return_value=mock_sidebar_context)
         mock_sidebar.__exit__ = Mock(return_value=False)
-        mock_sidebar.header = Mock()
-        mock_sidebar.checkbox = Mock(return_value=True)
-        mock_sidebar.button = Mock(return_value=False)
-        mock_sidebar.divider = Mock()
-        mock_sidebar.caption = Mock()
+        # Also add methods directly to sidebar for non-context usage
+        mock_sidebar.header = mock_sidebar_context.header
+        mock_sidebar.checkbox = mock_sidebar_context.checkbox
+        mock_sidebar.button = mock_sidebar_context.button
+        mock_sidebar.divider = mock_sidebar_context.divider
+        mock_sidebar.caption = mock_sidebar_context.caption
+        
         mock_st.sidebar = mock_sidebar
         
         # Mock expander
@@ -467,17 +476,22 @@ class TestMain:
         """Test that main function renders the sidebar."""
         main()
         
-        # Check sidebar elements were called
-        mock_streamlit.sidebar.header.assert_called_with("Settings")
-        mock_streamlit.sidebar.checkbox.assert_called()
-        mock_streamlit.sidebar.divider.assert_called()
-        mock_streamlit.sidebar.caption.assert_called()
+        # Get the context manager return value
+        sidebar_context = mock_streamlit.sidebar.__enter__.return_value
+        
+        # Check sidebar elements were called on the context
+        sidebar_context.header.assert_called_with("Settings")
+        sidebar_context.checkbox.assert_called()
+        sidebar_context.divider.assert_called()
+        sidebar_context.caption.assert_called()
     
     @patch("src.dashboard.app.render_main_content")
     @patch("src.dashboard.app.render_header")
     def test_main_handles_refresh_button(self, mock_render_header, mock_render_content, mock_streamlit):
         """Test that refresh button triggers rerun."""
-        mock_streamlit.sidebar.button.return_value = True
+        # Get the context manager return value and set button to return True
+        sidebar_context = mock_streamlit.sidebar.__enter__.return_value
+        sidebar_context.button.return_value = True
         
         main()
         
