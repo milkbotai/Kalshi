@@ -26,9 +26,21 @@ def mock_streamlit():
         mock_container.__exit__ = Mock(return_value=False)
         mock_st.container = Mock(return_value=mock_container)
         
-        # Mock columns
-        mock_col = Mock()
-        mock_st.columns = Mock(return_value=[mock_col, mock_col, mock_col, mock_col, mock_col])
+        # Mock columns - return context manager mocks
+        def create_column_mock():
+            col = Mock()
+            col.__enter__ = Mock(return_value=col)
+            col.__exit__ = Mock(return_value=False)
+            return col
+        
+        def columns_side_effect(spec):
+            if isinstance(spec, int):
+                return [create_column_mock() for _ in range(spec)]
+            elif isinstance(spec, list):
+                return [create_column_mock() for _ in range(len(spec))]
+            return [create_column_mock(), create_column_mock()]
+        
+        mock_st.columns = Mock(side_effect=columns_side_effect)
         
         # Mock UI elements
         mock_st.markdown = Mock()

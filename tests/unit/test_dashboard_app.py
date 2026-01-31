@@ -134,8 +134,37 @@ def mock_data_provider():
 def mock_streamlit():
     """Mock streamlit session state and functions."""
     with patch("src.dashboard.app.st") as mock_st:
-        # Mock session state
-        mock_st.session_state = {}
+        # Create a proper session state mock that behaves like a dict with attributes
+        session_state = {}
+        
+        def get_item(key):
+            return session_state.get(key)
+        
+        def set_item(key, value):
+            session_state[key] = value
+        
+        def contains(key):
+            return key in session_state
+        
+        mock_session_state = Mock()
+        mock_session_state.__getitem__ = Mock(side_effect=get_item)
+        mock_session_state.__setitem__ = Mock(side_effect=set_item)
+        mock_session_state.__contains__ = Mock(side_effect=contains)
+        mock_session_state.get = Mock(side_effect=lambda k, d=None: session_state.get(k, d))
+        
+        # Allow attribute access
+        def getattr_handler(name):
+            if name in session_state:
+                return session_state[name]
+            raise AttributeError(f"'{type(mock_session_state).__name__}' object has no attribute '{name}'")
+        
+        def setattr_handler(name, value):
+            session_state[name] = value
+        
+        mock_session_state.__getattr__ = Mock(side_effect=getattr_handler)
+        mock_session_state.__setattr__ = Mock(side_effect=setattr_handler)
+        
+        mock_st.session_state = mock_session_state
         
         # Mock UI elements
         mock_st.title = Mock()
@@ -151,15 +180,30 @@ def mock_streamlit():
         mock_st.selectbox = Mock(return_value="1 Month")
         mock_st.rerun = Mock()
         
-        # Mock columns
-        mock_col = Mock()
-        mock_st.columns = Mock(return_value=[mock_col, mock_col, mock_col, mock_col])
+        # Mock columns - return context manager mocks
+        def create_column_mock():
+            col = Mock()
+            col.__enter__ = Mock(return_value=col)
+            col.__exit__ = Mock(return_value=False)
+            return col
+        
+        def columns_side_effect(spec):
+            if isinstance(spec, int):
+                return [create_column_mock() for _ in range(spec)]
+            elif isinstance(spec, list):
+                return [create_column_mock() for _ in range(len(spec))]
+            return [create_column_mock(), create_column_mock()]
+        
+        mock_st.columns = Mock(side_effect=columns_side_effect)
         
         # Mock tabs
-        mock_tab = Mock()
-        mock_tab.__enter__ = Mock(return_value=mock_tab)
-        mock_tab.__exit__ = Mock(return_value=False)
-        mock_st.tabs = Mock(return_value=[mock_tab, mock_tab, mock_tab, mock_tab])
+        def create_tab_mock():
+            tab = Mock()
+            tab.__enter__ = Mock(return_value=tab)
+            tab.__exit__ = Mock(return_value=False)
+            return tab
+        
+        mock_st.tabs = Mock(return_value=[create_tab_mock() for _ in range(4)])
         
         # Mock sidebar
         mock_sidebar = Mock()
@@ -192,7 +236,8 @@ class TestGetDataProvider:
     
     def test_returns_existing_provider_from_session(self, mock_streamlit, mock_data_provider):
         """Test that existing provider is returned from session state."""
-        mock_streamlit.session_state["data_provider"] = mock_data_provider
+        # Manually set the provider in session state
+        mock_streamlit.session_state.__setitem__("data_provider", mock_data_provider)
         
         provider = get_data_provider()
         
