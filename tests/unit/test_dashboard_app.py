@@ -178,6 +178,8 @@ def mock_streamlit():
         mock_st.warning = Mock()
         mock_st.divider = Mock()
         mock_st.markdown = Mock()
+        mock_st.write = Mock()
+        mock_st.header = Mock()
         mock_st.button = Mock(return_value=False)
         mock_st.checkbox = Mock(return_value=True)
         mock_st.selectbox = Mock(return_value="1 Month")
@@ -208,25 +210,11 @@ def mock_streamlit():
         
         mock_st.tabs = Mock(return_value=[create_tab_mock() for _ in range(4)])
         
-        # Mock sidebar - create a shared mock for both context and direct access
-        mock_sidebar_methods = Mock()
-        mock_sidebar_methods.header = Mock()
-        mock_sidebar_methods.checkbox = Mock(return_value=True)
-        mock_sidebar_methods.button = Mock(return_value=False)
-        mock_sidebar_methods.divider = Mock()
-        mock_sidebar_methods.caption = Mock()
-        
-        # Sidebar is both a context manager and has direct method access
+        # Mock sidebar as a context manager
+        # Inside `with st.sidebar:`, calls go to st.header, st.checkbox, etc. (not sidebar.header)
         mock_sidebar = Mock()
-        mock_sidebar.__enter__ = Mock(return_value=mock_sidebar_methods)
+        mock_sidebar.__enter__ = Mock(return_value=mock_sidebar)
         mock_sidebar.__exit__ = Mock(return_value=False)
-        # Direct access to methods (same objects as context)
-        mock_sidebar.header = mock_sidebar_methods.header
-        mock_sidebar.checkbox = mock_sidebar_methods.checkbox
-        mock_sidebar.button = mock_sidebar_methods.button
-        mock_sidebar.divider = mock_sidebar_methods.divider
-        mock_sidebar.caption = mock_sidebar_methods.caption
-        
         mock_st.sidebar = mock_sidebar
         
         # Mock expander
@@ -477,27 +465,27 @@ class TestMain:
         """Test that main function renders the sidebar."""
         main()
         
-        # The sidebar methods are called within the context manager
-        # Get the context manager return value (the shared mock_sidebar_methods)
-        sidebar_context = mock_streamlit.sidebar.__enter__.return_value
+        # Verify sidebar context manager was used
+        mock_streamlit.sidebar.__enter__.assert_called_once()
+        mock_streamlit.sidebar.__exit__.assert_called_once()
         
-        # Check sidebar elements were called
-        sidebar_context.header.assert_called_with("Settings")
-        sidebar_context.checkbox.assert_called()
-        sidebar_context.divider.assert_called()
-        sidebar_context.caption.assert_called()
+        # Inside `with st.sidebar:`, calls go to st.header, st.checkbox, st.button
+        # (not sidebar.header, etc.)
+        mock_streamlit.header.assert_called_with("Settings")
+        mock_streamlit.checkbox.assert_called()
+        mock_streamlit.button.assert_called_with("Refresh Now")
+        mock_streamlit.caption.assert_called()
     
     @patch("src.dashboard.app.render_main_content")
     @patch("src.dashboard.app.render_header")
     def test_main_handles_refresh_button(self, mock_render_header, mock_render_content, mock_streamlit):
         """Test that refresh button triggers rerun."""
-        # Configure the sidebar context's button to return True
-        sidebar_context = mock_streamlit.sidebar.__enter__.return_value
-        sidebar_context.button.return_value = True
+        # Configure button to return True (simulating a click)
+        mock_streamlit.button.return_value = True
         
         main()
         
-        # Check rerun was called
+        # Check rerun was called when button returns True
         mock_streamlit.rerun.assert_called_once()
     
     @patch("src.dashboard.app.render_main_content")
@@ -508,3 +496,15 @@ class TestMain:
         
         # Check auto_refresh was set in session state
         assert "auto_refresh" in mock_streamlit.session_state
+    
+    @patch("src.dashboard.app.render_main_content")
+    @patch("src.dashboard.app.render_header")
+    def test_main_no_rerun_when_button_not_clicked(self, mock_render_header, mock_render_content, mock_streamlit):
+        """Test that rerun is not called when button is not clicked."""
+        # Button returns False (not clicked)
+        mock_streamlit.button.return_value = False
+        
+        main()
+        
+        # Check rerun was NOT called
+        mock_streamlit.rerun.assert_not_called()
