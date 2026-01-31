@@ -208,23 +208,24 @@ def mock_streamlit():
         
         mock_st.tabs = Mock(return_value=[create_tab_mock() for _ in range(4)])
         
-        # Mock sidebar - needs to be a context manager with methods available on the returned object
-        mock_sidebar_context = Mock()
-        mock_sidebar_context.header = Mock()
-        mock_sidebar_context.checkbox = Mock(return_value=True)
-        mock_sidebar_context.button = Mock(return_value=False)
-        mock_sidebar_context.divider = Mock()
-        mock_sidebar_context.caption = Mock()
+        # Mock sidebar - create a shared mock for both context and direct access
+        mock_sidebar_methods = Mock()
+        mock_sidebar_methods.header = Mock()
+        mock_sidebar_methods.checkbox = Mock(return_value=True)
+        mock_sidebar_methods.button = Mock(return_value=False)
+        mock_sidebar_methods.divider = Mock()
+        mock_sidebar_methods.caption = Mock()
         
+        # Sidebar is both a context manager and has direct method access
         mock_sidebar = Mock()
-        mock_sidebar.__enter__ = Mock(return_value=mock_sidebar_context)
+        mock_sidebar.__enter__ = Mock(return_value=mock_sidebar_methods)
         mock_sidebar.__exit__ = Mock(return_value=False)
-        # Also add methods directly to sidebar for non-context usage
-        mock_sidebar.header = mock_sidebar_context.header
-        mock_sidebar.checkbox = mock_sidebar_context.checkbox
-        mock_sidebar.button = mock_sidebar_context.button
-        mock_sidebar.divider = mock_sidebar_context.divider
-        mock_sidebar.caption = mock_sidebar_context.caption
+        # Direct access to methods (same objects as context)
+        mock_sidebar.header = mock_sidebar_methods.header
+        mock_sidebar.checkbox = mock_sidebar_methods.checkbox
+        mock_sidebar.button = mock_sidebar_methods.button
+        mock_sidebar.divider = mock_sidebar_methods.divider
+        mock_sidebar.caption = mock_sidebar_methods.caption
         
         mock_st.sidebar = mock_sidebar
         
@@ -476,10 +477,11 @@ class TestMain:
         """Test that main function renders the sidebar."""
         main()
         
-        # Get the context manager return value
+        # The sidebar methods are called within the context manager
+        # Get the context manager return value (the shared mock_sidebar_methods)
         sidebar_context = mock_streamlit.sidebar.__enter__.return_value
         
-        # Check sidebar elements were called on the context
+        # Check sidebar elements were called
         sidebar_context.header.assert_called_with("Settings")
         sidebar_context.checkbox.assert_called()
         sidebar_context.divider.assert_called()
@@ -489,7 +491,7 @@ class TestMain:
     @patch("src.dashboard.app.render_header")
     def test_main_handles_refresh_button(self, mock_render_header, mock_render_content, mock_streamlit):
         """Test that refresh button triggers rerun."""
-        # Get the context manager return value and set button to return True
+        # Configure the sidebar context's button to return True
         sidebar_context = mock_streamlit.sidebar.__enter__.return_value
         sidebar_context.button.return_value = True
         
