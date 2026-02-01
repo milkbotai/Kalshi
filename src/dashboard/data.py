@@ -1,19 +1,36 @@
 """Data provider for dashboard.
 
 Provides data access layer for the Streamlit dashboard,
-connecting to the analytics API and NWS weather data.
+connecting to the Kalshi API for real portfolio/trade data and NWS weather data.
 """
 
+import os
+import re
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
 import requests
 
+from src.shared.api.kalshi import KalshiClient
 from src.shared.config.cities import city_loader
 from src.shared.config.logging import get_logger
 
 logger = get_logger(__name__)
+
+# City code mapping from Kalshi ticker prefixes
+TICKER_TO_CITY = {
+    "HIGHNYC": "NYC",
+    "HIGHLAX": "LAX",
+    "HIGHCHI": "CHI",
+    "HIGHMIA": "MIA",
+    "HIGHDFW": "DFW",
+    "HIGHDEN": "DEN",
+    "HIGHPHX": "PHX",
+    "HIGHSEA": "SEA",
+    "HIGHATL": "ATL",
+    "HIGHBOS": "BOS",
+}
 
 # NWS API settings
 NWS_USER_AGENT = "Milkbot/1.0 (contact@milkbot.ai)"
@@ -60,23 +77,53 @@ class DashboardCache:
     ttl_seconds: int = 5
 
 
+def _extract_city_from_ticker(ticker: str) -> str | None:
+    """Extract city code from a Kalshi ticker like HIGHNYC-26JAN31-T45."""
+    for prefix, city_code in TICKER_TO_CITY.items():
+        if ticker.startswith(prefix):
+            return city_code
+    return None
+
+
 class DashboardDataProvider:
     """Data provider for dashboard components.
 
-    Provides cached access to analytics data with configurable TTL.
-    In production, this would connect to the analytics API.
-    For now, it provides sample/mock data for testing.
+    Provides cached access to real Kalshi API data with configurable TTL.
+    Fetches portfolio balance, fills, and positions from Kalshi demo API.
     """
 
     def __init__(self, cache_ttl: int = 5) -> None:
-        """Initialize data provider.
+        """Initialize data provider with Kalshi API client.
 
         Args:
             cache_ttl: Cache time-to-live in seconds
         """
         self._cache = DashboardCache(ttl_seconds=cache_ttl)
-        self._engine = None  # Would be set in production
+        self._kalshi_client: KalshiClient | None = None
+        self._init_kalshi_client()
         logger.info("dashboard_data_provider_initialized", cache_ttl=cache_ttl)
+
+    def _init_kalshi_client(self) -> None:
+        """Initialize Kalshi API client from environment."""
+        api_key_id = os.environ.get("KALSHI_API_KEY_ID")
+        private_key_path = os.environ.get("KALSHI_PRIVATE_KEY_PATH")
+        api_url = os.environ.get("KALSHI_API_URL", os.environ.get("KALSHI_API_BASE", "https://demo-api.kalshi.co/trade-api/v2"))
+
+        if api_key_id and private_key_path:
+            try:
+                self._kalshi_client = KalshiClient(
+                    api_key_id=api_key_id,
+                    private_key_path=private_key_path,
+                    base_url=api_url,
+                )
+                logger.info("kalshi_client_initialized_for_dashboard")
+            except Exception as e:
+                logger.warning("kalshi_client_init_failed", error=str(e))
+                self._kalshi_client = None
+        else:
+            logger.warning("kalshi_credentials_not_configured",
+                          has_key_id=bool(api_key_id),
+                          has_key_path=bool(private_key_path))
 
     def _is_cache_valid(self, cache_time: datetime | None) -> bool:
         """Check if cache entry is still valid."""
@@ -132,8 +179,25 @@ class DashboardDataProvider:
             logger.warning("nws_observation_exception", station=station_id, error=str(e))
             return None, None
 
+    def _fetch_kalshi_markets_for_city(self, city_code: str) -> dict[str, Any] | None:
+        """Fetch current market data for a city from Kalshi API."""
+        if not self._kalshi_client:
+            return None
+
+        try:
+            # Kalshi series ticker format: HIGH{CITY} e.g., HIGHNYC
+            series_ticker = f"HIGH{city_code}"
+            markets = self._kalshi_client.get_markets(series_ticker=series_ticker, status="open", limit=1)
+
+            if markets:
+                return markets[0]
+            return None
+        except Exception as e:
+            logger.warning("kalshi_market_fetch_error", city=city_code, error=str(e))
+            return None
+
     def get_city_market_data(self) -> list[CityMarketData]:
-        """Get market data for all cities with real NWS weather.
+        """Get market data for all cities with real NWS weather and Kalshi prices.
 
         Returns:
             List of CityMarketData for all 10 cities
@@ -145,6 +209,10 @@ class DashboardDataProvider:
         city_codes = self.get_city_codes()
         market_data = []
         now = datetime.now(timezone.utc)
+
+        # Get city metrics for win rate and P&L data
+        city_metrics = self.get_city_metrics()
+        metrics_by_city = {m["city_code"]: m for m in city_metrics}
 
         for city_code in city_codes:
             try:
@@ -159,36 +227,50 @@ class DashboardDataProvider:
             current_temp = None
             weather_time = None
             weather_stale = False
-            
+
             if station_id:
                 current_temp, weather_time = self._fetch_nws_observation(station_id)
                 if weather_time:
                     age_minutes = (now - weather_time).total_seconds() / 60
                     # NWS updates hourly, so >90 minutes is stale
                     weather_stale = age_minutes > 90
-            
-            # Market data (placeholder - would come from Kalshi API in production)
-            # For now, generate sensible placeholder until trader populates DB
-            import random
-            random.seed(hash(city_code + now.strftime("%Y%m%d%H")))  # Stable within the hour
-            
-            # Generate win rate and P&L (placeholder)
-            win_rate = random.uniform(45, 75)
-            net_pnl = random.uniform(-200, 800)
-            
+
+            # Fetch real market data from Kalshi
+            kalshi_market = self._fetch_kalshi_markets_for_city(city_code)
+
+            # Get win rate and P&L from real city metrics
+            city_metric = metrics_by_city.get(city_code, {})
+            win_rate = city_metric.get("win_rate", 0.0)
+            net_pnl = city_metric.get("net_pnl", 0.0)
+
+            if kalshi_market:
+                # Use real market data
+                yes_bid = kalshi_market.get("yes_bid")
+                yes_ask = kalshi_market.get("yes_ask")
+                spread = (yes_ask - yes_bid) if yes_bid and yes_ask else None
+                volume = kalshi_market.get("volume", 0)
+                open_interest = kalshi_market.get("open_interest", 0)
+            else:
+                # No market available (markets closed or error)
+                yes_bid = None
+                yes_ask = None
+                spread = None
+                volume = 0
+                open_interest = 0
+
             market_data.append(
                 CityMarketData(
                     city_code=city_code,
                     city_name=city_name,
                     current_temp=current_temp,
                     high_threshold=None,
-                    yes_bid=random.randint(35, 65),
-                    yes_ask=random.randint(40, 70),
-                    spread=random.randint(2, 6),
-                    volume=random.randint(800, 4000),
-                    open_interest=random.randint(15000, 45000),
-                    last_signal=random.choice(["BUY", "SELL", "HOLD"]),
-                    last_signal_time=now - timedelta(minutes=random.randint(5, 60)),
+                    yes_bid=yes_bid,
+                    yes_ask=yes_ask,
+                    spread=spread,
+                    volume=volume,
+                    open_interest=open_interest,
+                    last_signal=None,  # Would come from strategy state
+                    last_signal_time=None,
                     weather_updated_at=weather_time,
                     weather_stale=weather_stale,
                     win_rate=win_rate,
@@ -200,14 +282,62 @@ class DashboardDataProvider:
         self._cache.city_market_data = market_data
         self._cache.city_market_data_time = datetime.now(timezone.utc)
 
+        logger.info("city_market_data_built", cities=len(market_data))
+
         return market_data
+
+    def _fetch_kalshi_fills(self) -> list[dict[str, Any]]:
+        """Fetch all fills from Kalshi API."""
+        if not self._kalshi_client:
+            logger.warning("kalshi_client_not_available_for_fills")
+            return []
+
+        try:
+            # Fetch fills from the last 30 days
+            min_ts = int((datetime.now(timezone.utc) - timedelta(days=30)).timestamp() * 1000)
+            fills = self._kalshi_client.get_fills(min_ts=min_ts, limit=1000)
+            logger.info("kalshi_fills_fetched", count=len(fills))
+            return fills
+        except Exception as e:
+            logger.error("kalshi_fills_fetch_error", error=str(e))
+            return []
+
+    def _fetch_kalshi_balance(self) -> dict[str, Any]:
+        """Fetch current balance from Kalshi API."""
+        if not self._kalshi_client:
+            logger.warning("kalshi_client_not_available_for_balance")
+            return {}
+
+        try:
+            balance = self._kalshi_client.get_balance()
+            logger.info("kalshi_balance_fetched", balance=balance)
+            return balance
+        except Exception as e:
+            logger.error("kalshi_balance_fetch_error", error=str(e))
+            return {}
+
+    def _fetch_kalshi_positions(self) -> list[dict[str, Any]]:
+        """Fetch current positions from Kalshi API."""
+        if not self._kalshi_client:
+            logger.warning("kalshi_client_not_available_for_positions")
+            return []
+
+        try:
+            positions = self._kalshi_client.get_positions()
+            logger.info("kalshi_positions_fetched", count=len(positions))
+            return positions
+        except Exception as e:
+            logger.error("kalshi_positions_fetch_error", error=str(e))
+            return []
 
     def get_equity_curve(
         self,
         start_date: date | None = None,
         end_date: date | None = None,
     ) -> list[dict[str, Any]]:
-        """Get equity curve data for charting.
+        """Get equity curve data from real Kalshi API data.
+
+        Builds equity curve from actual fills and current balance.
 
         Args:
             start_date: Start date for data
@@ -216,62 +346,93 @@ class DashboardDataProvider:
         Returns:
             List of equity curve points
         """
-        # Check cache (simple, doesn't account for date range changes)
+        # Check cache
         if self._is_cache_valid(self._cache.equity_curve_time):
             return self._cache.equity_curve
 
-        # Generate sample data synced with city metrics
-        # In production, this would call the analytics API
-        # Launch date: Jan 31, 2026
+        # Get real data from Kalshi
+        balance_data = self._fetch_kalshi_balance()
+        fills = self._fetch_kalshi_fills()
+
+        # Starting bankroll from env (default $5000 = 500000 cents)
+        starting_bankroll_cents = int(os.environ.get("BANKROLL", "5000")) * 100
+
+        # Current portfolio value from Kalshi (in cents)
+        current_balance_cents = balance_data.get("balance", 0)
+        portfolio_value_cents = balance_data.get("portfolio_value", current_balance_cents)
+
+        # Total P&L = current value - starting
+        total_pnl_cents = portfolio_value_cents - starting_bankroll_cents
+
+        # Build daily equity curve from fills
         launch_date = date(2026, 1, 31)
-        
         if start_date is None:
             start_date = launch_date
         if end_date is None:
             end_date = date.today()
-        
-        # Don't generate data before launch
+
         if start_date < launch_date:
             start_date = launch_date
 
-        import random
-        
-        # Use consistent seed based on date for reproducibility
-        random.seed(42)
-        
-        # Get city metrics to calculate total P&L
-        city_metrics = self.get_city_metrics()
-        total_city_pnl = sum(m.get("net_pnl", 0) for m in city_metrics)
-        
-        # Calculate days since launch
-        days_total = (end_date - launch_date).days + 1
-        days_in_range = (end_date - start_date).days + 1
-        
-        # Distribute total P&L across days with some variance
-        base_daily_pnl = total_city_pnl / max(days_total, 1)
+        # Group fills by date
+        daily_pnl: dict[str, float] = {}
+        for fill in fills:
+            # Parse fill timestamp
+            fill_ts = fill.get("created_time") or fill.get("ts")
+            if not fill_ts:
+                continue
 
+            try:
+                if isinstance(fill_ts, int):
+                    fill_date = datetime.fromtimestamp(fill_ts / 1000, tz=timezone.utc).date()
+                else:
+                    fill_date = datetime.fromisoformat(fill_ts.replace("Z", "+00:00")).date()
+            except Exception:
+                continue
+
+            date_key = fill_date.isoformat()
+
+            # Calculate P&L for this fill
+            # Kalshi fills have: side (yes/no), action (buy/sell), count, price
+            action = fill.get("action", "")
+            side = fill.get("side", "")
+            count = fill.get("count", 0)
+            price = fill.get("price", 0)  # in cents
+
+            # For settled contracts, we also get 'is_taker' and realized P&L
+            # P&L = (exit_price - entry_price) * count for longs
+            # For now, use the fill's own P&L if available, otherwise estimate
+            fill_pnl = fill.get("realized_pnl", 0)
+            if fill_pnl == 0:
+                # Estimate: buying YES at price X means we paid X cents per contract
+                # If settled at 100, we made (100 - X) per contract
+                # This is approximate without knowing settlement
+                pass
+
+            if date_key not in daily_pnl:
+                daily_pnl[date_key] = 0.0
+            daily_pnl[date_key] += fill_pnl / 100.0  # Convert cents to dollars
+
+        # Build equity curve
         equity_curve = []
-        current_equity = 5000.0
+        current_equity = starting_bankroll_cents / 100.0  # Convert to dollars
         cumulative_pnl = 0.0
         high_water_mark = current_equity
 
         current_date = start_date
-        day_index = (start_date - launch_date).days
-        
         while current_date <= end_date:
-            # Add variance but ensure total sums correctly
-            variance = random.uniform(-50, 50)
-            daily_pnl = base_daily_pnl + variance
-            
-            current_equity += daily_pnl
-            cumulative_pnl += daily_pnl
+            date_key = current_date.isoformat()
+            day_pnl = daily_pnl.get(date_key, 0.0)
+
+            current_equity += day_pnl
+            cumulative_pnl += day_pnl
             high_water_mark = max(high_water_mark, current_equity)
             drawdown = high_water_mark - current_equity
 
             equity_curve.append({
-                "date": current_date.isoformat(),
+                "date": date_key,
                 "ending_equity": round(current_equity, 2),
-                "daily_pnl": round(daily_pnl, 2),
+                "daily_pnl": round(day_pnl, 2),
                 "cumulative_pnl": round(cumulative_pnl, 2),
                 "drawdown": round(drawdown, 2),
                 "drawdown_pct": round((drawdown / high_water_mark) * 100, 2) if high_water_mark > 0 else 0,
@@ -279,11 +440,27 @@ class DashboardDataProvider:
             })
 
             current_date += timedelta(days=1)
-            day_index += 1
+
+        # If we have real balance data, update the last point to reflect actual current value
+        if equity_curve and portfolio_value_cents > 0:
+            actual_equity = portfolio_value_cents / 100.0
+            actual_cumulative_pnl = total_pnl_cents / 100.0
+            equity_curve[-1]["ending_equity"] = round(actual_equity, 2)
+            equity_curve[-1]["cumulative_pnl"] = round(actual_cumulative_pnl, 2)
+            # Recalculate drawdown for last point
+            high_water_mark = max(high_water_mark, actual_equity)
+            equity_curve[-1]["high_water_mark"] = round(high_water_mark, 2)
+            equity_curve[-1]["drawdown"] = round(high_water_mark - actual_equity, 2)
+            equity_curve[-1]["drawdown_pct"] = round(((high_water_mark - actual_equity) / high_water_mark) * 100, 2) if high_water_mark > 0 else 0
 
         # Update cache
         self._cache.equity_curve = equity_curve
         self._cache.equity_curve_time = datetime.now(timezone.utc)
+
+        logger.info("equity_curve_built",
+                   points=len(equity_curve),
+                   current_equity=equity_curve[-1]["ending_equity"] if equity_curve else 0,
+                   total_pnl=equity_curve[-1]["cumulative_pnl"] if equity_curve else 0)
 
         return equity_curve
 
@@ -292,7 +469,9 @@ class DashboardDataProvider:
         start_date: date | None = None,
         end_date: date | None = None,
     ) -> list[dict[str, Any]]:
-        """Get city performance metrics.
+        """Get city performance metrics from real Kalshi fills.
+
+        Aggregates fills by city to compute win rate, P&L, and trade counts.
 
         Args:
             start_date: Start date for data
@@ -305,41 +484,82 @@ class DashboardDataProvider:
         if self._is_cache_valid(self._cache.city_metrics_time):
             return self._cache.city_metrics
 
-        # Generate sample data for testing with consistent seed
-        # In production, this would call the analytics API
+        # Get all city codes
         city_codes = self.get_city_codes()
-        metrics = []
 
-        import random
-        
-        # Use consistent seed for reproducible data
-        random.seed(123)
-
+        # Initialize metrics per city
+        city_data: dict[str, dict[str, Any]] = {}
         for city_code in city_codes:
-            trade_count = random.randint(20, 80)
-            win_rate = random.uniform(45, 72)
-            win_count = int(trade_count * win_rate / 100)
-            loss_count = trade_count - win_count
-            
-            # Generate P&L based on win rate (higher win rate = more profit)
-            base_pnl = (win_rate - 50) * 30  # Scale by win rate
-            variance = random.uniform(-200, 200)
-            net_pnl = base_pnl + variance
+            city_data[city_code] = {
+                "city_code": city_code,
+                "trade_count": 0,
+                "win_count": 0,
+                "loss_count": 0,
+                "net_pnl": 0.0,
+                "gross_pnl": 0.0,
+                "fees": 0.0,
+            }
+
+        # Fetch real fills from Kalshi
+        fills = self._fetch_kalshi_fills()
+
+        # Aggregate fills by city
+        for fill in fills:
+            ticker = fill.get("ticker", "")
+            city_code = _extract_city_from_ticker(ticker)
+
+            if not city_code or city_code not in city_data:
+                continue
+
+            # Increment trade count
+            city_data[city_code]["trade_count"] += 1
+
+            # Get P&L for this fill
+            realized_pnl = fill.get("realized_pnl", 0) / 100.0  # Convert cents to dollars
+
+            # Track wins/losses based on P&L
+            if realized_pnl > 0:
+                city_data[city_code]["win_count"] += 1
+                city_data[city_code]["gross_pnl"] += realized_pnl
+            elif realized_pnl < 0:
+                city_data[city_code]["loss_count"] += 1
+
+            city_data[city_code]["net_pnl"] += realized_pnl
+
+            # Estimate fees (Kalshi charges ~$0.01-0.02 per contract)
+            count = fill.get("count", 0)
+            city_data[city_code]["fees"] += count * 0.01
+
+        # Calculate win rates and format output
+        metrics = []
+        for city_code in city_codes:
+            data = city_data[city_code]
+            trade_count = data["trade_count"]
+
+            if trade_count > 0:
+                win_rate = (data["win_count"] / trade_count) * 100
+            else:
+                win_rate = 0.0
 
             metrics.append({
                 "city_code": city_code,
                 "trade_count": trade_count,
-                "win_count": win_count,
-                "loss_count": loss_count,
+                "win_count": data["win_count"],
+                "loss_count": data["loss_count"],
                 "win_rate": round(win_rate, 1),
-                "net_pnl": round(net_pnl, 2),
-                "gross_pnl": round(abs(net_pnl) + random.uniform(50, 200), 2),
-                "fees": round(random.uniform(10, 50), 2),
+                "net_pnl": round(data["net_pnl"], 2),
+                "gross_pnl": round(data["gross_pnl"], 2),
+                "fees": round(data["fees"], 2),
             })
 
         # Update cache
         self._cache.city_metrics = metrics
         self._cache.city_metrics_time = datetime.now(timezone.utc)
+
+        logger.info("city_metrics_built",
+                   cities_with_trades=sum(1 for m in metrics if m["trade_count"] > 0),
+                   total_trades=sum(m["trade_count"] for m in metrics),
+                   total_pnl=sum(m["net_pnl"] for m in metrics))
 
         return metrics
 
@@ -348,14 +568,14 @@ class DashboardDataProvider:
         city_code: str | None = None,
         limit: int = 100,
     ) -> list[dict[str, Any]]:
-        """Get public trade feed (60-minute delayed).
+        """Get trade feed from real Kalshi fills (60-minute delayed for public).
 
         Args:
             city_code: Optional city filter
             limit: Maximum trades to return
 
         Returns:
-            List of public trades
+            List of trades from Kalshi fills
         """
         # Check cache
         if self._is_cache_valid(self._cache.public_trades_time):
@@ -364,30 +584,37 @@ class DashboardDataProvider:
                 trades = [t for t in trades if t.get("city_code") == city_code]
             return trades[:limit]
 
-        # Generate sample data for testing
-        # In production, this would call the analytics API
-        city_codes = self.get_city_codes()
+        # Fetch real fills from Kalshi
+        fills = self._fetch_kalshi_fills()
         trades = []
 
-        import random
+        for fill in fills:
+            ticker = fill.get("ticker", "")
+            extracted_city = _extract_city_from_ticker(ticker)
 
-        # Generate 100 sample trades
-        for i in range(100):
-            city = random.choice(city_codes)
-            trade_time = datetime.now(timezone.utc) - timedelta(
-                minutes=random.randint(60, 1440)  # 1-24 hours ago
-            )
+            # Parse fill timestamp
+            fill_ts = fill.get("created_time") or fill.get("ts")
+            if fill_ts:
+                try:
+                    if isinstance(fill_ts, int):
+                        trade_time = datetime.fromtimestamp(fill_ts / 1000, tz=timezone.utc)
+                    else:
+                        trade_time = datetime.fromisoformat(fill_ts.replace("Z", "+00:00"))
+                except Exception:
+                    trade_time = datetime.now(timezone.utc)
+            else:
+                trade_time = datetime.now(timezone.utc)
 
             trades.append({
-                "trade_id": 1000 + i,
-                "city_code": city,
-                "ticker": f"HIGH{city}-{trade_time.strftime('%d%b%y').upper()}-T{random.randint(30,70)}",
-                "side": random.choice(["yes", "no"]),
-                "action": "buy",
-                "quantity": random.randint(10, 500),
-                "price": random.randint(30, 70),
+                "trade_id": fill.get("trade_id") or fill.get("fill_id"),
+                "city_code": extracted_city,
+                "ticker": ticker,
+                "side": fill.get("side", ""),
+                "action": fill.get("action", ""),
+                "quantity": fill.get("count", 0),
+                "price": fill.get("price", 0),
                 "trade_time": trade_time.isoformat(),
-                "realized_pnl": round(random.uniform(-50, 100), 2) if random.random() > 0.5 else None,
+                "realized_pnl": fill.get("realized_pnl", 0) / 100.0 if fill.get("realized_pnl") else None,
                 "strategy_name": "daily_high_temp",
             })
 
@@ -398,6 +625,8 @@ class DashboardDataProvider:
         self._cache.public_trades = trades
         self._cache.public_trades_time = datetime.now(timezone.utc)
 
+        logger.info("public_trades_built", count=len(trades))
+
         # Apply filters
         if city_code:
             trades = [t for t in trades if t.get("city_code") == city_code]
@@ -405,7 +634,7 @@ class DashboardDataProvider:
         return trades[:limit]
 
     def get_health_status(self) -> dict[str, Any]:
-        """Get system health status.
+        """Get system health status by actually checking services.
 
         Returns:
             Health status dictionary
@@ -414,44 +643,72 @@ class DashboardDataProvider:
         if self._is_cache_valid(self._cache.health_status_time):
             return self._cache.health_status
 
-        # Generate sample data for testing
-        # In production, this would call the analytics API
-        import random
+        now = datetime.now(timezone.utc)
+        components = []
 
-        components = [
-            {
-                "name": "Kalshi API",
-                "status": random.choices(["healthy", "degraded", "unhealthy"], weights=[0.9, 0.08, 0.02])[0],
-                "last_check": datetime.now(timezone.utc).isoformat(),
-                "latency_ms": random.uniform(20, 100),
-                "error_rate": random.uniform(0, 0.05),
-                "message": None,
-            },
-            {
-                "name": "Weather API (NWS)",
-                "status": random.choices(["healthy", "degraded"], weights=[0.95, 0.05])[0],
-                "last_check": datetime.now(timezone.utc).isoformat(),
-                "latency_ms": random.uniform(50, 200),
-                "error_rate": random.uniform(0, 0.02),
-                "message": None,
-            },
-            {
-                "name": "Database",
-                "status": "healthy",
-                "last_check": datetime.now(timezone.utc).isoformat(),
-                "latency_ms": random.uniform(5, 20),
-                "error_rate": 0,
-                "message": None,
-            },
-            {
-                "name": "Trading Engine",
-                "status": "healthy",
-                "last_check": datetime.now(timezone.utc).isoformat(),
-                "latency_ms": random.uniform(10, 50),
-                "error_rate": 0,
-                "message": None,
-            },
-        ]
+        # Check Kalshi API health
+        kalshi_status = "healthy"
+        kalshi_message = None
+        kalshi_latency = 0.0
+
+        if self._kalshi_client:
+            try:
+                import time
+                start = time.time()
+                self._kalshi_client.get_balance()
+                kalshi_latency = (time.time() - start) * 1000
+                kalshi_status = "healthy"
+            except Exception as e:
+                kalshi_status = "unhealthy"
+                kalshi_message = str(e)[:100]
+        else:
+            kalshi_status = "degraded"
+            kalshi_message = "API credentials not configured"
+
+        components.append({
+            "name": "Kalshi API",
+            "status": kalshi_status,
+            "last_check": now.isoformat(),
+            "latency_ms": round(kalshi_latency, 2),
+            "error_rate": 0,
+            "message": kalshi_message,
+        })
+
+        # Check NWS API health (use a test station)
+        nws_status = "healthy"
+        nws_message = None
+        nws_latency = 0.0
+
+        try:
+            import time
+            start = time.time()
+            temp, _ = self._fetch_nws_observation("KJFK")
+            nws_latency = (time.time() - start) * 1000
+            if temp is None:
+                nws_status = "degraded"
+                nws_message = "No temperature data returned"
+        except Exception as e:
+            nws_status = "unhealthy"
+            nws_message = str(e)[:100]
+
+        components.append({
+            "name": "Weather API (NWS)",
+            "status": nws_status,
+            "last_check": now.isoformat(),
+            "latency_ms": round(nws_latency, 2),
+            "error_rate": 0,
+            "message": nws_message,
+        })
+
+        # Dashboard is always healthy if we got here
+        components.append({
+            "name": "Dashboard",
+            "status": "healthy",
+            "last_check": now.isoformat(),
+            "latency_ms": 0,
+            "error_rate": 0,
+            "message": None,
+        })
 
         # Calculate summary
         healthy = sum(1 for c in components if c["status"] == "healthy")

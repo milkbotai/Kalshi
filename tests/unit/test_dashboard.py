@@ -137,12 +137,16 @@ class TestDashboardDataProvider:
 
     def test_get_equity_curve(self, data_provider: DashboardDataProvider) -> None:
         """Test getting equity curve data."""
-        start_date = date.today() - timedelta(days=7)
+        # Use dates that are on or after the launch date (Jan 31, 2026)
+        launch_date = date(2026, 1, 31)
+        start_date = launch_date
         end_date = date.today()
 
         curve = data_provider.get_equity_curve(start_date, end_date)
 
-        assert len(curve) == 8  # 7 days + 1
+        # Curve length depends on days from launch to today
+        expected_days = (end_date - start_date).days + 1
+        assert len(curve) == expected_days
         assert all("ending_equity" in point for point in curve)
         assert all("daily_pnl" in point for point in curve)
         assert all("drawdown" in point for point in curve)
@@ -206,7 +210,7 @@ class TestDashboardDataProvider:
         # Should have key components
         assert "Kalshi API" in component_names
         assert "Weather API (NWS)" in component_names
-        assert "Database" in component_names
+        assert "Dashboard" in component_names
 
     def test_cache_validity(self, data_provider: DashboardDataProvider) -> None:
         """Test cache validity checking."""

@@ -107,7 +107,7 @@ footer {{visibility: hidden;}}
 
 .tagline {{
     font-family: 'JetBrains Mono', monospace !important;
-    font-size: 24px;
+    font-size: 22px;
     font-style: italic;
     font-weight: 600;
     color: #1e90ff;

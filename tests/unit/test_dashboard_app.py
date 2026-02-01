@@ -108,12 +108,20 @@ def mock_data_provider():
             "win_rate": 65.0,
             "net_pnl": 250.0,
             "trade_count": 10,
+            "win_count": 7,
+            "loss_count": 3,
+            "gross_pnl": 300.0,
+            "fees": 5.0,
         },
         {
             "city_code": "CHI",
             "win_rate": 55.0,
             "net_pnl": -50.0,
             "trade_count": 8,
+            "win_count": 4,
+            "loss_count": 4,
+            "gross_pnl": 100.0,
+            "fees": 4.0,
         },
     ]
     
