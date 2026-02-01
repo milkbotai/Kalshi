@@ -21,7 +21,7 @@ CITY_CODES: Final[list[str]] = [
 ]
 
 # Market parameters
-MAX_POSITION_SIZE: Final[int] = 1000  # Maximum contracts per position
+MAX_POSITION_SIZE: Final[int] = 300  # Maximum contracts per position (scaled for $1500 bankroll)
 MIN_EDGE_BPS: Final[int] = 50  # Minimum edge in basis points (0.5%)
 MAX_SPREAD_BPS: Final[int] = 200  # Maximum acceptable spread (2%)
 

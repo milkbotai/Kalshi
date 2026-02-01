@@ -26,15 +26,15 @@ class RiskCalculator:
         max_city_exposure_pct: float = 0.03,
         max_cluster_exposure_pct: float = 0.05,
         max_trade_risk_pct: float = 0.02,
-        bankroll: float = 5000.0,
+        bankroll: float = 1500.0,
     ) -> None:
         """Initialize risk calculator.
 
         Args:
-            max_city_exposure_pct: Maximum exposure per city as % of bankroll
-            max_cluster_exposure_pct: Maximum exposure per cluster as % of bankroll
-            max_trade_risk_pct: Maximum risk per trade as % of bankroll
-            bankroll: Total bankroll in dollars
+            max_city_exposure_pct: Maximum exposure per city as % of bankroll (3% = $45)
+            max_cluster_exposure_pct: Maximum exposure per cluster as % of bankroll (5% = $75)
+            max_trade_risk_pct: Maximum risk per trade as % of bankroll (2% = $30)
+            bankroll: Total bankroll in dollars (default $1500)
         """
         self.max_city_exposure_pct = max_city_exposure_pct
         self.max_cluster_exposure_pct = max_cluster_exposure_pct
@@ -240,14 +240,14 @@ class CircuitBreaker:
 
     def __init__(
         self,
-        max_daily_loss: float = 250.0,
+        max_daily_loss: float = 75.0,
         max_rejects_window: int = 5,
         reject_window_minutes: int = 15,
     ) -> None:
         """Initialize circuit breaker.
 
         Args:
-            max_daily_loss: Maximum daily loss in dollars before pause
+            max_daily_loss: Maximum daily loss in dollars before pause (5% of $1500 = $75)
             max_rejects_window: Maximum order rejects in time window
             reject_window_minutes: Time window for reject tracking in minutes
         """

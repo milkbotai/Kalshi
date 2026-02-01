@@ -24,18 +24,23 @@ class DailyHighTempStrategy(Strategy):
     def __init__(
         self,
         name: str = "daily_high_temp",
-        min_edge: float = 0.005,
-        max_uncertainty: float = 0.20,
-        default_std_dev: float = 3.0,
+        min_edge: float = 0.02,
+        max_uncertainty: float = 0.15,
+        default_std_dev: float = 2.5,
         transaction_cost: float = 1.0,
     ) -> None:
         """Initialize daily high temperature strategy.
 
+        Optimized for maximum profit with tighter probability thresholds:
+        - Higher min_edge (2%) ensures only high-confidence trades
+        - Lower max_uncertainty (15%) filters out volatile forecasts
+        - Tighter std_dev (2.5°F) assumes better forecast accuracy
+
         Args:
             name: Strategy name
-            min_edge: Minimum edge required to trade (default 0.5%)
-            max_uncertainty: Maximum uncertainty allowed (default 20%)
-            default_std_dev: Default forecast std dev in °F (default 3°F)
+            min_edge: Minimum edge required to trade (2% for higher win rate)
+            max_uncertainty: Maximum uncertainty allowed (15% for precision)
+            default_std_dev: Default forecast std dev in °F (2.5°F for tighter estimates)
             transaction_cost: Estimated transaction cost in cents
         """
         super().__init__(name=name, min_edge=min_edge)

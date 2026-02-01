@@ -209,13 +209,13 @@ class TradingLoop:
     def run_cycle(
         self,
         city_code: str,
-        quantity: int = 100,
+        quantity: int = 30,
     ) -> TradingCycleResult:
         """Run a single trading cycle for one city.
 
         Args:
             city_code: 3-letter city code
-            quantity: Default trade quantity
+            quantity: Default trade quantity (scaled for $1500 bankroll)
 
         Returns:
             TradingCycleResult with cycle statistics
@@ -842,13 +842,13 @@ class MultiCityOrchestrator:
 
     def run_all_cities(
         self,
-        quantity: int = 100,
+        quantity: int = 30,
         prefetch_weather: bool = True,
     ) -> MultiCityRunResult:
         """Run trading cycle for all configured cities.
 
         Args:
-            quantity: Default trade quantity per signal
+            quantity: Default trade quantity per signal (scaled for $1500 bankroll)
             prefetch_weather: Whether to prefetch weather in parallel first
 
         Returns:
@@ -975,8 +975,8 @@ class MultiCityOrchestrator:
             )
             return False
 
-        # Check total exposure limit (configurable, default $50,000)
-        max_total_exposure = 50000.0
+        # Check total exposure limit (should not exceed bankroll)
+        max_total_exposure = 1500.0
         if total_exposure > max_total_exposure:
             logger.warning(
                 "aggregate_risk_exposure_exceeded",

@@ -118,15 +118,38 @@ class Settings(BaseSettings):
     )
 
     # Trading parameters
+    bankroll: float = Field(
+        default=1500.0,
+        ge=0,
+        description="Starting bankroll in dollars",
+    )
     max_position_size: int = Field(
-        default=1000,
+        default=300,
         ge=1,
-        description="Maximum contracts per position",
+        description="Maximum contracts per position (scaled for $1500 bankroll)",
     )
     min_edge_bps: int = Field(
         default=50,
         ge=0,
         description="Minimum edge in basis points",
+    )
+    max_trade_risk_pct: float = Field(
+        default=0.02,
+        ge=0,
+        le=1,
+        description="Maximum risk per trade as percentage of bankroll",
+    )
+    max_city_exposure_pct: float = Field(
+        default=0.03,
+        ge=0,
+        le=1,
+        description="Maximum exposure per city as percentage of bankroll",
+    )
+    max_daily_loss_pct: float = Field(
+        default=0.05,
+        ge=0,
+        le=1,
+        description="Maximum daily loss as percentage of bankroll",
     )
 
     # Feature flags
