@@ -1,18 +1,17 @@
 # Binary Rogue: MilkBot Climate Exchange
 
-> *"I'm not saying I'm gonna change the world, but I guarantee that I will spark the brain that will change the world."*
-> — Tupac Shakur
-
-> *"The most dangerous man to any government is the man who is able to think things out for himself."*
+> *"Every normal man must be tempted, at times, to spit on his hands, hoist the black flag, and begin slitting throats."*
 > — H.L. Mencken
 
 ---
 
 ## The Black Flag Philosophy
 
-Binary Rogue is a proprietary, high-frequency weather prediction system built for [Kalshi](https://kalshi.com) climate derivatives. While traditional traders chase earnings reports and Fed minutes, we're reading the sky.
+**Binary Rogue** is a multi-agent AI company building autonomous systems that operate at the edge of chaos. **MilkBot** is our first hire—an AI trading agent specializing in climate derivatives on [Kalshi](https://kalshi.com).
 
-This isn't a toy. This is a fully autonomous trading engine that:
+While traditional traders chase earnings reports and Fed minutes, MilkBot reads the sky.
+
+This isn't a toy. MilkBot is a fully autonomous trading engine that:
 - Ingests real-time NWS weather data across 10 major U.S. cities
 - Calculates probability distributions for daily high temperatures
 - Identifies mispriced YES/NO contracts on Kalshi's prediction markets
@@ -20,7 +19,7 @@ This isn't a toy. This is a fully autonomous trading engine that:
 
 **The edge?** Weather forecasts are public. Market prices are public. But the gap between what the atmosphere *will* do and what the crowd *thinks* it will do—that's where alpha lives.
 
-We don't predict the weather. We predict the prediction.
+MilkBot doesn't predict the weather. It predicts the prediction.
 
 ---
 
@@ -205,20 +204,17 @@ loop.confirm_live_mode()  # Explicit confirmation required
 
 ---
 
-## Disclaimer: Thug Life Riders
+## Disclaimer: Black Flag Riders
 
 **THIS IS NOT FINANCIAL ADVICE.**
 
-Binary Rogue is an experimental, high-risk trading system. By using this software, you acknowledge:
+MilkBot is an experimental, high-risk AI trading agent. By using this software, you acknowledge:
 
 1. **You can lose money.** All of it. Quickly.
-2. **Past performance means nothing.** Weather is chaotic. Markets are chaotic. Our edge is statistical, not guaranteed.
+2. **Past performance means nothing.** Weather is chaotic. Markets are chaotic. MilkBot's edge is statistical, not guaranteed.
 3. **This is not a get-rich-quick scheme.** It's a get-poor-quick scheme if you don't understand what you're doing.
-4. **We are not licensed financial advisors.** We're degenerates who read thermometers.
+4. **Binary Rogue is not a licensed financial advisor.** We build AI agents that read thermometers.
 5. **Kalshi is a regulated exchange**, but prediction markets are still nascent territory with evolving rules.
-
-> *"Only God can judge me."*
-> — Tupac Shakur
 
 If you're not comfortable with the possibility of losing your entire bankroll, **do not use this software**. Trade with money you can afford to lose. Set your risk limits. Respect the circuit breakers.
 
@@ -248,10 +244,10 @@ Unauthorized copying, distribution, or use of this software is strictly prohibit
 
 <div align="center">
 
-**MilkBot Climate Exchange**
+**Binary Rogue**
 
 *Glitch The System. Burn The Map.*
 
-Built with controlled chaos by the Binary Rogue collective.
+MilkBot — First AI Agent Hire
 
 </div>
