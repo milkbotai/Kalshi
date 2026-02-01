@@ -1,30 +1,264 @@
 """Main Streamlit dashboard application.
 
-Public dashboard for weather trading platform showing:
-- 10-city grid with market data
-- Delayed trade feed (60-minute delay)
-- Equity curve chart
-- City performance heatmap
-- System health indicator
+MilkBot Climate Exchange Dashboard
 """
 
+import base64
 import os
 from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
 from typing import Any
 
 import streamlit as st
 
 # Page config must be first Streamlit command
 st.set_page_config(
-    page_title="Weather Trading Dashboard",
+    page_title="MilkBot Climate Exchange",
     page_icon="🌤️",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
 
-# Import components after page config
+# =============================================================================
+# GLOBAL STYLES - Including LOCAL Freckle Face font
+# =============================================================================
+
+# Load Freckle Face font as base64 for bulletproof local hosting
+def get_font_base64():
+    font_path = Path("src/dashboard/assets/fonts/freckle-face.woff2")
+    if font_path.exists():
+        with open(font_path, "rb") as f:
+            return base64.b64encode(f.read()).decode()
+    return None
+
+FRECKLE_FACE_B64 = get_font_base64()
+
+# Inject all global styles in ONE block
+st.markdown(f"""
+<style>
+/* ============================================
+   LOCAL FONT: Freckle Face (bulletproof)
+   ============================================ */
+@font-face {{
+    font-family: 'Freckle Face';
+    src: url(data:font/woff2;base64,{FRECKLE_FACE_B64}) format('woff2');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}}
+
+/* Other fonts via Google */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+/* ============================================
+   BASE STYLES
+   ============================================ */
+* {{
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}}
+
+/* Hide Streamlit chrome */
+#MainMenu {{visibility: hidden;}}
+header {{visibility: hidden;}}
+footer {{visibility: hidden;}}
+
+/* Dark background everywhere */
+[data-testid="stAppViewContainer"], .stApp {{
+    background-color: #0a0a0a !important;
+}}
+
+/* Container */
+.block-container {{
+    padding-top: 10px !important;
+    padding-bottom: 0 !important;
+    max-width: 1400px !important;
+}}
+
+/* ============================================
+   HEADER STYLES - Very compact
+   ============================================ */
+.header-text-block {{
+    text-align: center;
+    padding: 10px 0;
+}}
+
+.milkbot-title {{
+    font-family: 'Freckle Face', cursive !important;
+    font-size: 56px;
+    color: #94a3b8;
+    line-height: 1;
+    margin: 0 0 4px 0;
+}}
+
+.climate-title {{
+    font-family: 'Inter', sans-serif !important;
+    font-size: 42px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    background: linear-gradient(90deg, #00ffc8, #00d9ff, #a78bfa);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    line-height: 1;
+    margin: 0 0 6px 0;
+}}
+
+.tagline {{
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 24px;
+    font-style: italic;
+    font-weight: 600;
+    color: #1e90ff;
+    line-height: 1.2;
+    margin: 8px 0 0 0;
+}}
+
+/* ============================================
+   TABS
+   ============================================ */
+.stTabs [data-baseweb="tab-list"] {{
+    justify-content: center;
+    gap: 6px;
+    background-color: transparent;
+    flex-wrap: wrap;
+}}
+.stTabs [data-baseweb="tab"] {{
+    height: 40px;
+    padding: 8px 16px;
+    background-color: #1a1f2e;
+    border-radius: 6px 6px 0 0;
+    font-size: 13px !important;
+    font-weight: 500;
+}}
+
+/* ============================================
+   CITY CARDS
+   ============================================ */
+.city-card {{
+    background-color: #1a1f2e;
+    border: 1px solid #2d333b;
+    border-radius: 8px;
+    padding: 12px 8px;
+    text-align: center;
+    margin-bottom: 6px;
+}}
+.city-name-large {{
+    color: #fafafa;
+    font-size: 15px;
+    margin: 0 0 4px 0;
+    font-weight: 700;
+}}
+.city-temp {{
+    font-size: 28px;
+    font-weight: 700;
+    color: #00ffc8;
+    margin-bottom: 4px;
+}}
+.city-card .stat-grid {{
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3px 4px;
+}}
+.city-card .stat-label {{
+    color: #6b7280;
+    font-size: 9px;
+    text-transform: uppercase;
+}}
+.city-card .stat-value {{
+    color: #00d9ff;
+    font-size: 13px;
+    font-weight: 600;
+}}
+.city-card .signal-buy {{ color: #06b6d4; }}
+.city-card .signal-sell {{ color: #f97316; }}
+.city-card .signal-hold {{ color: #6b7280; }}
+.city-card .spread-tight {{ color: #10b981; }}
+.city-card .spread-medium {{ color: #f59e0b; }}
+.city-card .spread-wide {{ color: #ef4444; }}
+.city-card .volume-value {{ color: #a78bfa; }}
+.city-card .pnl-positive {{ color: #10b981; }}
+.city-card .pnl-negative {{ color: #ef4444; }}
+
+/* ============================================
+   BREAKDOWN CARDS
+   ============================================ */
+.breakdown-card {{
+    background: #1a1f2e;
+    padding: 12px 8px;
+    border-radius: 6px;
+    text-align: center;
+    border: 1px solid #2d333b;
+    margin-bottom: 6px;
+}}
+.breakdown-card .city-code {{
+    font-size: 18px;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 6px;
+}}
+
+/* ============================================
+   MOBILE RESPONSIVE
+   ============================================ */
+@media (max-width: 768px) {{
+    .block-container {{
+        padding: 6px 10px !important;
+    }}
+    
+    /* Center logo on mobile */
+    [data-testid="column"]:first-child {{
+        display: flex;
+        justify-content: center;
+    }}
+    
+    .milkbot-title {{
+        font-size: 40px;
+    }}
+    .climate-title {{
+        font-size: 28px;
+        letter-spacing: 1px;
+    }}
+    .tagline {{
+        font-size: 15px;
+    }}
+    
+    /* Tabs wrap into rows */
+    .stTabs [data-baseweb="tab-list"] {{
+        gap: 4px;
+    }}
+    .stTabs [data-baseweb="tab"] {{
+        padding: 6px 10px;
+        font-size: 11px !important;
+        flex: 1 1 45%;
+        min-width: 0;
+    }}
+    
+    /* Larger body text on mobile (+2pt equivalent) */
+    .city-card, .breakdown-card, [data-testid="stMarkdown"] p {{
+        font-size: 14px !important;
+    }}
+    .city-name-large {{
+        font-size: 14px;
+    }}
+    .city-temp {{
+        font-size: 24px;
+    }}
+    .city-card .stat-label {{
+        font-size: 10px;
+    }}
+    .city-card .stat-value {{
+        font-size: 14px;
+    }}
+}}
+</style>
+""", unsafe_allow_html=True)
+
+# Import components after styles
 from src.dashboard.components import (
     render_city_grid,
+    render_city_performance_table,
     render_equity_chart,
     render_health_indicator,
     render_performance_heatmap,
@@ -41,57 +275,151 @@ def get_data_provider() -> DashboardDataProvider:
 
 
 def render_header() -> None:
-    """Render clean 3-column header."""
+    """Render COMPACT header: logo left, text center, empty right."""
+    # 3-column layout
+    left_col, center_col, right_col = st.columns([1, 2, 1])
+    
+    with left_col:
+        logo_path = Path("src/dashboard/assets/milkbot-logo.png")
+        if logo_path.exists():
+            st.image(str(logo_path), width=180)
+    
+    with center_col:
+        # Use CSS classes for fonts
+        st.markdown("""
+        <div class="header-text-block">
+            <div class="milkbot-title">MilkBot</div>
+            <div class="climate-title">CLIMATE EXCHANGE</div>
+            <div class="tagline">"Glitch The System. Burn The Map."</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with right_col:
+        st.write("")
+
+
+def render_status_row() -> None:
+    """Render status row SEPARATE from header."""
     import pytz
     
-    # Convert to NYC timezone
     nyc_tz = pytz.timezone("America/New_York")
     nyc_now = datetime.now(pytz.utc).astimezone(nyc_tz)
     tz_abbrev = "EST" if nyc_now.dst() == timedelta(0) else "EDT"
     current_time = nyc_now.strftime(f"%-I:%M %p {tz_abbrev}")
     
-    # Render clean 3-column header
-    header_html = f"""
-    <div class="header-wrapper">
-        <div class="header-container">
-            <div class="header-left">
-                <span class="brand-logo">🌤️ Milkbot</span>
-            </div>
-            <div class="header-center">
-                <h1 class="main-title">CLIMATE EXCHANGE</h1>
-                <p class="tagline">Glitch The System. Burn The Map.</p>
-            </div>
-            <div class="header-right">
-                <div class="delay-badge" title="Data delayed 60 minutes to prevent copy-trading bots from front-running our positions">🛡️ 60-MIN DELAY • ANTI-FRONTRUN PROTECTION</div>
-                <div class="live-timestamp">
-                    <span class="live-dot"></span>
-                    <span>LIVE • {current_time}</span>
-                </div>
-            </div>
-        </div>
-        <div class="header-border"></div>
+    # Status row - clearly separate, single line, one rule below
+    st.markdown(f"""
+    <div style="text-align: center; padding: 8px 0; font-family: 'JetBrains Mono', monospace; font-size: 15px; margin-top: 4px;">
+        <span style="color: #f97316; font-weight: 600;">🛡️ 60-MIN DELAY • ANTI-FRONTRUN</span>
+        <span style="color: #4b5563; margin: 0 16px;">|</span>
+        <span style="color: #10b981; font-weight: 600;">● LIVE • {current_time}</span>
     </div>
-    """
-    st.markdown(header_html, unsafe_allow_html=True)
+    <div style="height: 1px; background: #2d333b; margin: 6px 0 12px 0;"></div>
+    """, unsafe_allow_html=True)
+
+
+def render_stats_strip(data_provider: DashboardDataProvider) -> None:
+    """Render compact stats strip under status row."""
+    equity_data = data_provider.get_equity_curve()
+    city_metrics = data_provider.get_city_metrics()
+    
+    if equity_data:
+        current_equity = equity_data[-1].get("ending_equity", 5000)
+        daily_pnl = equity_data[-1].get("daily_pnl", 0)
+        total_pnl = equity_data[-1].get("cumulative_pnl", 0)
+    else:
+        current_equity = 5000
+        daily_pnl = 0
+        total_pnl = 0
+    
+    if city_metrics:
+        total_trades = sum(m.get("trade_count", 0) for m in city_metrics)
+        total_wins = sum(m.get("win_count", 0) for m in city_metrics)
+        overall_win_rate = (total_wins / total_trades * 100) if total_trades > 0 else 0
+        best_city = max(city_metrics, key=lambda x: x.get("net_pnl", 0))
+        worst_city = min(city_metrics, key=lambda x: x.get("net_pnl", 0))
+    else:
+        overall_win_rate = 0
+        best_city = {"city_code": "N/A", "net_pnl": 0}
+        worst_city = {"city_code": "N/A", "net_pnl": 0}
+    
+    # 5 compact stats
+    cols = st.columns(5)
+    
+    # Card styling - darker than main cards
+    card_css = "background:#0d1117;padding:10px 6px;border-radius:6px;text-align:center;border:1px solid #1a1f2e;"
+    label_css = "color:#6b7280;font-size:9px;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px;"
+    value_css = "font-size:18px;font-weight:700;line-height:1.1;"
+    sub_css = "font-size:10px;margin-top:2px;"
+    
+    with cols[0]:
+        pnl_color = "#10b981" if daily_pnl >= 0 else "#ef4444"
+        st.markdown(f"""
+        <div style="{card_css}">
+            <div style="{label_css}">Portfolio</div>
+            <div style="{value_css}color:#00d9ff;">${current_equity:,.0f}</div>
+            <div style="{sub_css}color:{pnl_color};">{daily_pnl:+,.0f} today</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with cols[1]:
+        total_color = "#10b981" if total_pnl >= 0 else "#ef4444"
+        st.markdown(f"""
+        <div style="{card_css}">
+            <div style="{label_css}">Total P&L</div>
+            <div style="{value_css}color:{total_color};">${total_pnl:+,.0f}</div>
+            <div style="{sub_css}color:#6b7280;">Since Jan 31</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with cols[2]:
+        st.markdown(f"""
+        <div style="{card_css}">
+            <div style="{label_css}">Win Rate</div>
+            <div style="{value_css}color:#00d9ff;">{overall_win_rate:.1f}%</div>
+            <div style="{sub_css}color:#6b7280;">{total_trades} trades</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with cols[3]:
+        best_pnl = best_city.get("net_pnl", 0)
+        st.markdown(f"""
+        <div style="{card_css}">
+            <div style="{label_css}">Top City</div>
+            <div style="{value_css}color:#00d9ff;">{best_city.get("city_code", "N/A")}</div>
+            <div style="{sub_css}color:#10b981;">${best_pnl:+,.0f}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with cols[4]:
+        worst_pnl = worst_city.get("net_pnl", 0)
+        worst_color = "#ef4444" if worst_pnl < 0 else "#6b7280"
+        st.markdown(f"""
+        <div style="{card_css}">
+            <div style="{label_css}">Worst City</div>
+            <div style="{value_css}color:#00d9ff;">{worst_city.get("city_code", "N/A")}</div>
+            <div style="{sub_css}color:{worst_color};">${worst_pnl:+,.0f}</div>
+        </div>
+        """, unsafe_allow_html=True)
 
 
 def render_footer() -> None:
-    """Render sticky footer."""
-    footer_html = """
-    <div class="footer-wrapper">
-        <div class="footer-container">
-            <p class="footer-text">Built by Milkbot • Owned by Binary Rogue, LLC</p>
-        </div>
+    """Render footer."""
+    st.markdown("""
+    <div style="text-align: center; padding: 20px 0 16px 0; margin-top: 32px; border-top: 1px solid #2d333b;">
+        <p style="font-size: 13px; color: #6b7280; margin: 0;">Built by MilkBot • Owned by Binary Rogue, LLC</p>
     </div>
-    """
-    st.markdown(footer_html, unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
 
 
 def render_main_content() -> None:
     """Render main dashboard content."""
     data_provider = get_data_provider()
 
-    # Tabs for different views
+    render_stats_strip(data_provider)
+    
+    st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
+
     tab1, tab2, tab3, tab4 = st.tabs([
         "📊 City Markets",
         "📈 Performance",
@@ -113,124 +441,185 @@ def render_main_content() -> None:
 
 
 def render_city_markets_tab(data_provider: DashboardDataProvider) -> None:
-    """Render city markets tab with 10-city grid."""
-    # Centered section title - 42px bold
-    st.markdown('<h2 class="section-title">10-City Market Overview</h2>', unsafe_allow_html=True)
-
-    # Get city data
+    """Render city markets tab."""
+    st.markdown('<h2 style="font-size:24px;font-weight:700;color:#fafafa;text-align:center;margin:12px 0 16px 0;">10-City Market Overview</h2>', unsafe_allow_html=True)
     city_data = data_provider.get_city_market_data()
-
-    # Render grid
     render_city_grid(city_data)
 
 
 def render_performance_tab(data_provider: DashboardDataProvider) -> None:
-    """Render performance tab with equity curve and heatmap."""
-    col1, col2 = st.columns([2, 1])
-
-    with col1:
-        st.subheader("Portfolio Equity Curve")
-
-        # Date range selector
-        range_options = {
-            "1 Week": 7,
-            "1 Month": 30,
-            "3 Months": 90,
-            "All Time": 365,
-        }
-        selected_range = st.selectbox(
-            "Time Range",
-            options=list(range_options.keys()),
-            index=1,
-        )
-        days = range_options[selected_range]
-
-        # Get equity curve data
-        end_date = date.today()
-        start_date = end_date - timedelta(days=days)
-        equity_data = data_provider.get_equity_curve(start_date, end_date)
-
-        # Render chart
-        render_equity_chart(equity_data)
-
-    with col2:
-        st.subheader("City Performance Heatmap")
-
-        # Get city metrics
-        city_metrics = data_provider.get_city_metrics()
-
-        # Render heatmap
-        render_performance_heatmap(city_metrics)
+    """Render performance tab with LARGE metric cards."""
+    city_metrics = data_provider.get_city_metrics()
+    
+    # Get equity data
+    end_date = date.today()
+    start_date = end_date - timedelta(days=30)
+    equity_data = data_provider.get_equity_curve(start_date, end_date)
+    
+    if equity_data:
+        start_equity = equity_data[0].get("ending_equity", 5000) - equity_data[0].get("daily_pnl", 0)
+        end_equity = equity_data[-1].get("ending_equity", 5000)
+        total_return = equity_data[-1].get("cumulative_pnl", 0)
+        max_dd = max(p.get("drawdown_pct", 0) for p in equity_data)
+    else:
+        start_equity = 5000
+        end_equity = 5000
+        total_return = 0
+        max_dd = 0
+    
+    # ==========================================================================
+    # PERFORMANCE METRIC CARDS - DOUBLED FONT SIZE
+    # ==========================================================================
+    st.markdown('<h3 style="font-size:20px;font-weight:600;color:#fafafa;margin:0 0 12px 0;">Performance Summary</h3>', unsafe_allow_html=True)
+    
+    metric_cols = st.columns(4)
+    
+    # Card style with LARGE numbers (32px - doubled from ~16px)
+    card_bg = "#1a1f2e"
+    card_border = "#2d333b"
+    label_size = "12px"
+    value_size = "32px"  # DOUBLED
+    
+    with metric_cols[0]:
+        st.markdown(f"""
+        <div style="background:{card_bg};padding:16px;border-radius:8px;text-align:center;border:1px solid {card_border};">
+            <div style="color:#6b7280;font-size:{label_size};text-transform:uppercase;margin-bottom:6px;">Starting Equity</div>
+            <div style="color:#00d9ff;font-size:{value_size};font-weight:700;">${start_equity:,.0f}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with metric_cols[1]:
+        st.markdown(f"""
+        <div style="background:{card_bg};padding:16px;border-radius:8px;text-align:center;border:1px solid {card_border};">
+            <div style="color:#6b7280;font-size:{label_size};text-transform:uppercase;margin-bottom:6px;">Current Equity</div>
+            <div style="color:#00d9ff;font-size:{value_size};font-weight:700;">${end_equity:,.0f}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with metric_cols[2]:
+        return_color = "#10b981" if total_return >= 0 else "#ef4444"
+        st.markdown(f"""
+        <div style="background:{card_bg};padding:16px;border-radius:8px;text-align:center;border:1px solid {card_border};">
+            <div style="color:#6b7280;font-size:{label_size};text-transform:uppercase;margin-bottom:6px;">Total Return</div>
+            <div style="color:{return_color};font-size:{value_size};font-weight:700;">${total_return:+,.0f}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with metric_cols[3]:
+        dd_color = "#ef4444" if max_dd > 5 else "#f59e0b" if max_dd > 2 else "#10b981"
+        st.markdown(f"""
+        <div style="background:{card_bg};padding:16px;border-radius:8px;text-align:center;border:1px solid {card_border};">
+            <div style="color:#6b7280;font-size:{label_size};text-transform:uppercase;margin-bottom:6px;">Max Drawdown</div>
+            <div style="color:{dd_color};font-size:{value_size};font-weight:700;">{max_dd:.1f}%</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("<div style='height:20px;'></div>", unsafe_allow_html=True)
+    
+    # Equity Curve
+    st.markdown('<h3 style="font-size:20px;font-weight:600;color:#fafafa;margin:0 0 10px 0;">Equity Curve</h3>', unsafe_allow_html=True)
+    
+    range_options = {"1 Day": 1, "7 Days": 7, "1 Month": 30, "All Time": 365}
+    selected_range = st.selectbox("Time Range", options=list(range_options.keys()), index=2, key="perf_range")
+    days = range_options[selected_range]
+    
+    end_date = date.today()
+    start_date = end_date - timedelta(days=days)
+    equity_data = data_provider.get_equity_curve(start_date, end_date)
+    render_equity_chart(equity_data)
+    
+    st.markdown("<div style='height:20px;'></div>", unsafe_allow_html=True)
+    
+    # City Performance Matrix
+    st.markdown('<h3 style="font-size:20px;font-weight:600;color:#fafafa;margin:0 0 10px 0;">City Performance Matrix</h3>', unsafe_allow_html=True)
+    render_performance_heatmap(city_metrics)
+    
+    st.markdown("<div style='height:20px;'></div>", unsafe_allow_html=True)
+    
+    # Detailed Table (always visible)
+    st.markdown('<h3 style="font-size:20px;font-weight:600;color:#fafafa;margin:0 0 10px 0;">Detailed City Performance</h3>', unsafe_allow_html=True)
+    render_city_performance_table(city_metrics)
 
 
 def render_trade_feed_tab(data_provider: DashboardDataProvider) -> None:
-    """Render trade feed tab with delayed trades."""
-    st.subheader("Public Trade Feed")
+    """Render trade feed tab."""
+    st.markdown('<h3 style="font-size:20px;font-weight:600;color:#fafafa;margin:0 0 8px 0;">Public Trade Feed</h3>', unsafe_allow_html=True)
     st.info("⏱️ Trades are delayed by 60 minutes for transparency")
 
-    # City filter
     cities = ["All Cities"] + data_provider.get_city_codes()
     selected_city = st.selectbox("Filter by City", cities)
-
     city_filter = None if selected_city == "All Cities" else selected_city
 
-    # Get trades
     trades = data_provider.get_public_trades(city_code=city_filter, limit=100)
-
-    # Render feed
     render_trade_feed(trades)
 
 
 def render_health_tab(data_provider: DashboardDataProvider) -> None:
-    """Render system health tab with detailed status."""
-    st.subheader("System Health Status")
+    """Render system health tab."""
+    st.markdown('<h3 style="font-size:20px;font-weight:600;color:#fafafa;margin:0 0 10px 0;">System Health Status</h3>', unsafe_allow_html=True)
 
     health_data = data_provider.get_health_status()
 
     if health_data:
-        # Summary metrics
-        col1, col2, col3, col4 = st.columns(4)
-
-        with col1:
-            st.metric(
-                "Overall Status",
-                health_data.get("overall_status", "Unknown").upper(),
-            )
+        overall = health_data.get("overall_status", "unknown")
+        overall_icon = "✅" if overall == "healthy" else "⚠️" if overall == "degraded" else "❌"
+        overall_color = "#10b981" if overall == "healthy" else "#f59e0b" if overall == "degraded" else "#ef4444"
+        
+        st.markdown(f"""
+        <div style="background:#1a1f2e;padding:16px;border-radius:8px;text-align:center;margin-bottom:16px;border:1px solid #2d333b;">
+            <div style="font-size:36px;margin-bottom:4px;">{overall_icon}</div>
+            <div style="font-size:20px;font-weight:700;color:{overall_color};text-transform:uppercase;">{overall}</div>
+            <div style="color:#6b7280;font-size:12px;margin-top:4px;">System Status</div>
+        </div>
+        """, unsafe_allow_html=True)
 
         summary = health_data.get("summary", {})
+        cols = st.columns(3)
+        
+        metrics = [
+            ("Healthy", summary.get("total_healthy", 0), "#10b981"),
+            ("Degraded", summary.get("total_degraded", 0), "#f59e0b"),
+            ("Unhealthy", summary.get("total_unhealthy", 0), "#ef4444"),
+        ]
+        
+        for i, (label, value, color) in enumerate(metrics):
+            with cols[i]:
+                st.markdown(f"""
+                <div style="background:#1a1f2e;padding:14px;border-radius:6px;text-align:center;border:1px solid #2d333b;">
+                    <div style="font-size:24px;font-weight:700;color:{color};">{value}</div>
+                    <div style="color:#6b7280;font-size:12px;margin-top:4px;">{label}</div>
+                </div>
+                """, unsafe_allow_html=True)
 
-        with col2:
-            st.metric("Healthy", summary.get("total_healthy", 0))
-
-        with col3:
-            st.metric("Degraded", summary.get("total_degraded", 0))
-
-        with col4:
-            st.metric("Unhealthy", summary.get("total_unhealthy", 0))
-
-        # Component details
-        st.subheader("Component Details")
+        st.markdown("<div style='height:12px;'></div>", unsafe_allow_html=True)
+        st.markdown('<h4 style="font-size:16px;font-weight:600;color:#fafafa;margin:0 0 10px 0;">Component Details</h4>', unsafe_allow_html=True)
 
         components = health_data.get("components", [])
         if components:
-            for comp in components:
+            comp_cols = st.columns(2)
+            for idx, comp in enumerate(components):
                 status = comp.get("status", "unknown")
                 icon = "✅" if status == "healthy" else "⚠️" if status == "degraded" else "❌"
-
-                with st.expander(f"{icon} {comp.get('name', 'Unknown')}", expanded=status != "healthy"):
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        st.write(f"**Status:** {status}")
-                        st.write(f"**Last Check:** {comp.get('last_check', 'N/A')}")
-                    with col2:
-                        latency = comp.get("latency_ms")
-                        if latency:
-                            st.write(f"**Latency:** {latency:.1f}ms")
-                        error_rate = comp.get("error_rate")
-                        if error_rate:
-                            st.write(f"**Error Rate:** {error_rate*100:.2f}%")
-                    if comp.get("message"):
-                        st.write(f"**Message:** {comp.get('message')}")
+                color = "#10b981" if status == "healthy" else "#f59e0b" if status == "degraded" else "#ef4444"
+                
+                with comp_cols[idx % 2]:
+                    latency = comp.get("latency_ms")
+                    latency_text = f"{latency:.0f}ms" if latency else "N/A"
+                    error_rate = comp.get("error_rate")
+                    error_text = f"{error_rate*100:.1f}%" if error_rate else "0%"
+                    
+                    st.markdown(f"""
+                    <div style="background:#1a1f2e;padding:12px;border-radius:6px;margin-bottom:8px;border:1px solid #2d333b;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                            <span style="font-size:14px;font-weight:600;color:#fff;">{icon} {comp.get('name', 'Unknown')}</span>
+                            <span style="color:{color};font-weight:600;text-transform:uppercase;font-size:12px;">{status}</span>
+                        </div>
+                        <div style="display:flex;gap:16px;color:#9ca3af;font-size:11px;">
+                            <span>Latency: <b style="color:#00d9ff;">{latency_text}</b></span>
+                            <span>Error Rate: <b style="color:#00d9ff;">{error_text}</b></span>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
         else:
             st.info("No component data available")
     else:
@@ -239,336 +628,19 @@ def render_health_tab(data_provider: DashboardDataProvider) -> None:
 
 def main() -> None:
     """Main dashboard entry point."""
-    # Custom CSS for styling - Bloomberg dark theme with sophisticated palette
-    st.markdown("""
-        <style>
-        /* Modern font stack */
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap');
-        
-        * {
-            font-family: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, system-ui, sans-serif !important;
-        }
-        
-        /* Remove top padding/margin */
-        .block-container {
-            padding-top: 0 !important;
-            max-width: 1400px !important;
-        }
-        #MainMenu {visibility: hidden;}
-        header {visibility: hidden;}
-        
-        /* Increase base font sizes */
-        html, body, [class*="css"] {
-            font-size: 17px !important;
-        }
-        
-        /* ========== CLEAN HEADER ========== */
-        .header-wrapper {
-            width: 100vw;
-            margin-left: calc(-50vw + 50%);
-            margin-top: 0 !important;
-            padding-top: 0 !important;
-            background: linear-gradient(180deg, #0d1117 0%, #1a1f2e 100%);
-        }
-        
-        .header-container {
-            max-width: 1400px;
-            margin: 0 auto;
-            margin-top: 0 !important;
-            padding: 0 40px 60px 40px;
-            padding-top: 0 !important;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        /* Left - Brand */
-        .header-left {
-            flex: 0 0 auto;
-        }
-        .brand-logo {
-            font-size: 32px;
-            font-weight: 600;
-            color: #ffffff;
-        }
-        
-        /* Center - Title & Tagline */
-        .header-center {
-            flex: 1;
-            text-align: center;
-        }
-        .main-title {
-            font-size: 56px !important;
-            font-weight: 800 !important;
-            text-transform: uppercase;
-            letter-spacing: 3px;
-            margin: 0 0 24px 0 !important;
-            background: linear-gradient(90deg, #00ffc8 0%, #a78bfa 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            line-height: 1.1;
-        }
-        .tagline {
-            font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace !important;
-            font-size: 22px !important;
-            font-style: normal;
-            font-weight: 400;
-            color: #ff5722 !important;
-            margin: 0 !important;
-            letter-spacing: 1px;
-        }
-        
-        /* Right - Status */
-        .header-right {
-            flex: 0 0 auto;
-            display: flex;
-            flex-direction: column;
-            align-items: flex-end;
-            gap: 8px;
-        }
-        .delay-badge {
-            background: rgba(255, 152, 0, 0.12);
-            color: #ff9800;
-            padding: 6px 14px;
-            border-radius: 6px;
-            font-family: 'JetBrains Mono', 'Fira Code', monospace !important;
-            font-size: 14px;
-            font-weight: 700;
-            letter-spacing: 0.5px;
-            border: 1px solid rgba(255, 152, 0, 0.35);
-            cursor: help;
-            transition: all 0.2s ease;
-        }
-        .delay-badge:hover {
-            background: rgba(255, 152, 0, 0.2);
-            border-color: rgba(255, 152, 0, 0.5);
-        }
-        .live-timestamp {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 14px;
-            color: #6b7280;
-        }
-        .live-dot {
-            width: 8px;
-            height: 8px;
-            background: #10b981;
-            border-radius: 50%;
-            box-shadow: 0 0 6px #10b981;
-        }
-        
-        /* Bottom border gradient */
-        .header-border {
-            height: 2px;
-            background: linear-gradient(90deg, rgba(0,255,200,0.3) 0%, rgba(167,139,250,0.3) 100%);
-        }
-        
-        /* ========== END HEADER ========== */
-        
-        /* ========== FOOTER ========== */
-        .footer-wrapper {
-            width: 100vw;
-            margin-left: calc(-50vw + 50%);
-            margin-top: 60px;
-            background: #0d1117;
-            border-top: 1px solid #2d333b;
-        }
-        .footer-container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 24px 40px;
-            text-align: center;
-        }
-        .footer-text {
-            font-size: 14px;
-            color: #6b7280;
-            margin: 0;
-        }
-        /* ========== END FOOTER ========== */
-
-        /* Section title - 42px bold centered */
-        .section-title {
-            font-size: 42px;
-            font-weight: 700;
-            color: #fafafa;
-            text-align: center;
-            margin: 1.5rem 0 2rem 0;
-        }
-        
-        /* Tab container - centered, max-width 1200px */
-        .stTabs {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-        .stTabs [data-baseweb="tab-list"] {
-            justify-content: center;
-            gap: 28px;
-            background-color: transparent;
-        }
-        .stTabs [data-baseweb="tab"] {
-            height: 52px;
-            padding-left: 24px;
-            padding-right: 24px;
-            background-color: #1a1f2e;
-            border-radius: 8px 8px 0 0;
-            font-size: 1.2rem !important;
-        }
-        
-        /* Dark card styling for metrics */
-        .stMetric {
-            background-color: #1a1f2e !important;
-            padding: 20px;
-            border-radius: 10px;
-            border: 1px solid #2d2d44;
-            box-shadow: 0 4px 12px rgba(0, 217, 255, 0.08);
-        }
-        .stMetric label {
-            color: #9ca3af !important;
-            font-size: 1.05rem !important;
-        }
-        .stMetric [data-testid="stMetricValue"] {
-            color: #00d9ff !important;
-            font-size: 1.7rem !important;
-        }
-        
-        /* Card containers */
-        [data-testid="stExpander"] {
-            background-color: #1a1f2e;
-            border: 1px solid #2d2d44;
-            border-radius: 10px;
-        }
-        
-        /* City card styling - sophisticated gradient hover */
-        .city-card {
-            background-color: #1a1f2e;
-            border: 2px solid transparent;
-            border-radius: 12px;
-            padding: 24px;
-            text-align: center;
-            margin-bottom: 1rem;
-            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-            transition: all 0.3s ease;
-            position: relative;
-        }
-        .city-card::before {
-            content: '';
-            position: absolute;
-            inset: -2px;
-            border-radius: 14px;
-            padding: 2px;
-            background: linear-gradient(135deg, transparent, transparent);
-            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-            -webkit-mask-composite: xor;
-            mask-composite: exclude;
-            transition: background 0.3s ease;
-        }
-        .city-card:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 8px 24px rgba(0, 217, 255, 0.15);
-        }
-        .city-card:hover::before {
-            background: linear-gradient(135deg, #00d9ff, #a78bfa);
-        }
-        
-        /* City code - 30px */
-        .city-card h3 {
-            color: #fafafa;
-            font-size: 30px;
-            margin: 0 0 0.25rem 0;
-            font-weight: 700;
-        }
-        .city-card .stat-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 16px;
-        }
-        .city-card .stat-item {
-            padding: 8px 4px;
-        }
-        /* Labels - 15px muted gray */
-        .city-card .stat-label {
-            color: #9ca3af;
-            font-size: 15px;
-            margin-bottom: 0.35rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        /* Stats - 20px electric blue default */
-        .city-card .stat-value {
-            color: #00d9ff;
-            font-size: 20px;
-            font-weight: 600;
-        }
-        /* Signal colors */
-        .city-card .signal-buy { color: #06b6d4; }
-        .city-card .signal-sell { color: #f97316; }
-        .city-card .signal-hold { color: #6b7280; }
-        /* Spread colors */
-        .city-card .spread-tight { color: #10b981; }
-        .city-card .spread-medium { color: #f59e0b; }
-        .city-card .spread-wide { color: #ef4444; }
-        /* Volume color */
-        .city-card .volume-value { color: #a78bfa; }
-        /* City name - centered */
-        .city-name {
-            color: #9ca3af;
-            font-size: 16px;
-            margin-bottom: 0.75rem;
-            text-align: center;
-        }
-        /* Temperature - 52px hero cyan, centered */
-        .city-temp {
-            font-size: 52px;
-            font-weight: 700;
-            line-height: 1;
-            margin-bottom: 0.25rem;
-            color: #00ffc8;
-            text-align: center;
-        }
-        /* Ensure all city card children are centered */
-        .city-card * {
-            text-align: center;
-        }
-        .city-card .stat-value {
-            justify-content: center;
-        }
-        </style>
-    """, unsafe_allow_html=True)
-
-    # Render header
+    # Render in order: Header -> Status Row -> Content -> Footer
     render_header()
-
-    st.divider()
-
-    # Render main content
+    render_status_row()
     render_main_content()
-    
-    # Render footer
     render_footer()
 
-    # Auto-refresh every 5 seconds
-    # Note: In production, use st.rerun() with a timer or websockets
-    # For now, we use a simple approach
-    if "auto_refresh" not in st.session_state:
-        st.session_state.auto_refresh = True
-
-    # Sidebar for settings
+    # Sidebar
     with st.sidebar:
         st.header("Settings")
-        st.session_state.auto_refresh = st.checkbox(
-            "Auto-refresh (5s)",
-            value=st.session_state.auto_refresh,
-        )
-
         if st.button("Refresh Now"):
             st.rerun()
-
         st.divider()
-        st.caption("Weather Trading Platform v1.0")
+        st.caption("MilkBot Climate Exchange v1.0")
         st.caption("Data delayed 60 minutes")
 
 

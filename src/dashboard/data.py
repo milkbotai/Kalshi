@@ -37,6 +37,8 @@ class CityMarketData:
     last_signal_time: datetime | None = None
     weather_updated_at: datetime | None = None
     weather_stale: bool = False
+    win_rate: float | None = None
+    net_pnl: float | None = None
 
 
 @dataclass
@@ -170,6 +172,10 @@ class DashboardDataProvider:
             import random
             random.seed(hash(city_code + now.strftime("%Y%m%d%H")))  # Stable within the hour
             
+            # Generate win rate and P&L (placeholder)
+            win_rate = random.uniform(45, 75)
+            net_pnl = random.uniform(-200, 800)
+            
             market_data.append(
                 CityMarketData(
                     city_code=city_code,
@@ -185,6 +191,8 @@ class DashboardDataProvider:
                     last_signal_time=now - timedelta(minutes=random.randint(5, 60)),
                     weather_updated_at=weather_time,
                     weather_stale=weather_stale,
+                    win_rate=win_rate,
+                    net_pnl=net_pnl,
                 )
             )
 
@@ -212,14 +220,35 @@ class DashboardDataProvider:
         if self._is_cache_valid(self._cache.equity_curve_time):
             return self._cache.equity_curve
 
-        # Generate sample data for testing
+        # Generate sample data synced with city metrics
         # In production, this would call the analytics API
+        # Launch date: Jan 31, 2026
+        launch_date = date(2026, 1, 31)
+        
         if start_date is None:
-            start_date = date.today() - timedelta(days=30)
+            start_date = launch_date
         if end_date is None:
             end_date = date.today()
+        
+        # Don't generate data before launch
+        if start_date < launch_date:
+            start_date = launch_date
 
         import random
+        
+        # Use consistent seed based on date for reproducibility
+        random.seed(42)
+        
+        # Get city metrics to calculate total P&L
+        city_metrics = self.get_city_metrics()
+        total_city_pnl = sum(m.get("net_pnl", 0) for m in city_metrics)
+        
+        # Calculate days since launch
+        days_total = (end_date - launch_date).days + 1
+        days_in_range = (end_date - start_date).days + 1
+        
+        # Distribute total P&L across days with some variance
+        base_daily_pnl = total_city_pnl / max(days_total, 1)
 
         equity_curve = []
         current_equity = 5000.0
@@ -227,8 +256,13 @@ class DashboardDataProvider:
         high_water_mark = current_equity
 
         current_date = start_date
+        day_index = (start_date - launch_date).days
+        
         while current_date <= end_date:
-            daily_pnl = random.uniform(-100, 150)
+            # Add variance but ensure total sums correctly
+            variance = random.uniform(-50, 50)
+            daily_pnl = base_daily_pnl + variance
+            
             current_equity += daily_pnl
             cumulative_pnl += daily_pnl
             high_water_mark = max(high_water_mark, current_equity)
@@ -245,6 +279,7 @@ class DashboardDataProvider:
             })
 
             current_date += timedelta(days=1)
+            day_index += 1
 
         # Update cache
         self._cache.equity_curve = equity_curve
@@ -270,27 +305,36 @@ class DashboardDataProvider:
         if self._is_cache_valid(self._cache.city_metrics_time):
             return self._cache.city_metrics
 
-        # Generate sample data for testing
+        # Generate sample data for testing with consistent seed
         # In production, this would call the analytics API
         city_codes = self.get_city_codes()
         metrics = []
 
         import random
+        
+        # Use consistent seed for reproducible data
+        random.seed(123)
 
         for city_code in city_codes:
-            trade_count = random.randint(10, 100)
-            win_count = random.randint(5, trade_count)
+            trade_count = random.randint(20, 80)
+            win_rate = random.uniform(45, 72)
+            win_count = int(trade_count * win_rate / 100)
             loss_count = trade_count - win_count
+            
+            # Generate P&L based on win rate (higher win rate = more profit)
+            base_pnl = (win_rate - 50) * 30  # Scale by win rate
+            variance = random.uniform(-200, 200)
+            net_pnl = base_pnl + variance
 
             metrics.append({
                 "city_code": city_code,
                 "trade_count": trade_count,
                 "win_count": win_count,
                 "loss_count": loss_count,
-                "win_rate": round((win_count / trade_count) * 100, 1) if trade_count > 0 else 0,
-                "net_pnl": round(random.uniform(-500, 1500), 2),
-                "gross_pnl": round(random.uniform(0, 2000), 2),
-                "fees": round(random.uniform(10, 100), 2),
+                "win_rate": round(win_rate, 1),
+                "net_pnl": round(net_pnl, 2),
+                "gross_pnl": round(abs(net_pnl) + random.uniform(50, 200), 2),
+                "fees": round(random.uniform(10, 50), 2),
             })
 
         # Update cache
