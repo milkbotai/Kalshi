@@ -19,17 +19,18 @@ from src.shared.config.logging import get_logger
 logger = get_logger(__name__)
 
 # City code mapping from Kalshi ticker prefixes
+# Kalshi uses KXHIGH prefix with abbreviated city codes
 TICKER_TO_CITY = {
-    "HIGHNYC": "NYC",
-    "HIGHLAX": "LAX",
-    "HIGHCHI": "CHI",
-    "HIGHMIA": "MIA",
-    "HIGHDFW": "DFW",
-    "HIGHDEN": "DEN",
-    "HIGHPHX": "PHX",
-    "HIGHSEA": "SEA",
-    "HIGHATL": "ATL",
-    "HIGHBOS": "BOS",
+    "KXHIGHNY": "NYC",
+    "KXHIGHLA": "LAX",
+    "KXHIGHCHI": "CHI",
+    "KXHIGHMIA": "MIA",
+    "KXHIGHAUS": "AUS",
+    "KXHIGHDEN": "DEN",
+    "KXHIGHPHIL": "PHL",
+    "KXHIGHSEA": "SEA",
+    "KXHIGHBOS": "BOS",
+    "KXHIGHSFO": "SFO",
 }
 
 # NWS API settings
@@ -185,8 +186,21 @@ class DashboardDataProvider:
             return None
 
         try:
-            # Kalshi series ticker format: HIGH{CITY} e.g., HIGHNYC
-            series_ticker = f"HIGH{city_code}"
+            # Kalshi series ticker format: KXHIGH{CITY} with abbreviated city codes
+            city_ticker_map = {
+                "NYC": "NY",
+                "CHI": "CHI",
+                "LAX": "LA",
+                "MIA": "MIA",
+                "AUS": "AUS",
+                "DEN": "DEN",
+                "PHL": "PHIL",
+                "BOS": "BOS",
+                "SEA": "SEA",
+                "SFO": "SFO",
+            }
+            kalshi_city = city_ticker_map.get(city_code, city_code)
+            series_ticker = f"KXHIGH{kalshi_city}"
             markets = self._kalshi_client.get_markets(series_ticker=series_ticker, status="open", limit=1)
 
             if markets:

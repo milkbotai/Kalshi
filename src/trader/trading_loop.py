@@ -279,7 +279,21 @@ class TradingLoop:
         if self.kalshi_client and self.trading_mode != TradingMode.SHADOW:
             try:
                 # Fetch markets for this city's high temp series
-                series_ticker = f"HIGH{city_code}"
+                # Kalshi uses KXHIGH prefix with abbreviated city codes
+                city_ticker_map = {
+                    "NYC": "NY",
+                    "CHI": "CHI",
+                    "LAX": "LA",
+                    "MIA": "MIA",
+                    "AUS": "AUS",
+                    "DEN": "DEN",
+                    "PHL": "PHIL",
+                    "BOS": "BOS",
+                    "SEA": "SEA",
+                    "SFO": "SFO",
+                }
+                kalshi_city = city_ticker_map.get(city_code, city_code)
+                series_ticker = f"KXHIGH{kalshi_city}"
                 markets = self.kalshi_client.get_markets_typed(
                     series_ticker=series_ticker,
                     status="open",
