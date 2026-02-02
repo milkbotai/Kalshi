@@ -613,18 +613,27 @@ def render_health_tab(data_provider: DashboardDataProvider) -> None:
                     # Check if this is the Trading Engine component
                     if comp_name == "Trading Engine":
                         orders_today = comp.get("orders_today", 0)
-                        last_activity = comp.get("last_activity")
-                        if last_activity:
+                        last_scan = comp.get("last_scan")
+                        markets_scanned = comp.get("markets_scanned", 0)
+                        message = comp.get("message", "")
+
+                        # Format last scan time
+                        if last_scan:
                             try:
-                                last_dt = datetime.fromisoformat(last_activity.replace("Z", "+00:00"))
+                                scan_dt = datetime.fromisoformat(last_scan.replace("Z", "+00:00"))
                                 import pytz
                                 nyc_tz = pytz.timezone("America/New_York")
-                                last_dt_nyc = last_dt.astimezone(nyc_tz)
-                                last_activity_text = last_dt_nyc.strftime("%-I:%M %p %m/%d")
+                                scan_dt_nyc = scan_dt.astimezone(nyc_tz)
+                                last_scan_text = scan_dt_nyc.strftime("%-I:%M %p")
                             except Exception:
-                                last_activity_text = "Unknown"
+                                last_scan_text = "Unknown"
                         else:
-                            last_activity_text = "None"
+                            last_scan_text = "Waiting..."
+
+                        # Show message if present (like "Monitoring" or error info)
+                        status_note = ""
+                        if message and "Monitoring" in message:
+                            status_note = f'<div style="color:#6b7280;font-size:10px;margin-top:4px;font-style:italic;">{message}</div>'
 
                         st.markdown(f"""
                         <div style="background:#1a1f2e;padding:12px;border-radius:6px;margin-bottom:8px;border:1px solid #2d333b;">
@@ -633,13 +642,14 @@ def render_health_tab(data_provider: DashboardDataProvider) -> None:
                                 <span style="color:{color};font-weight:600;text-transform:uppercase;font-size:12px;">{status}</span>
                             </div>
                             <div style="display:flex;gap:16px;color:#9ca3af;font-size:11px;">
-                                <span>Latency: <b style="color:#00d9ff;">{latency_text}</b></span>
-                                <span>Error Rate: <b style="color:#00d9ff;">{error_text}</b></span>
+                                <span>Last Scan: <b style="color:#00ffc8;">{last_scan_text}</b></span>
+                                <span>Markets: <b style="color:#00d9ff;">{markets_scanned}</b></span>
                             </div>
                             <div style="display:flex;gap:16px;color:#9ca3af;font-size:11px;margin-top:6px;padding-top:6px;border-top:1px solid #2d333b;">
                                 <span>Orders Today: <b style="color:#a78bfa;">{orders_today}</b></span>
-                                <span>Last Activity: <b style="color:#00ffc8;">{last_activity_text}</b></span>
+                                <span>Latency: <b style="color:#00d9ff;">{latency_text}</b></span>
                             </div>
+                            {status_note}
                         </div>
                         """, unsafe_allow_html=True)
                     else:

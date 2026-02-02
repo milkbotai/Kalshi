@@ -947,7 +947,31 @@ class MultiCityOrchestrator:
             total_orders=total_orders,
         )
 
+        # Write heartbeat file for dashboard monitoring
+        self._write_heartbeat(total_markets, total_signals)
+
         return result
+
+    def _write_heartbeat(self, markets_scanned: int, signals_generated: int) -> None:
+        """Write heartbeat file to indicate bot is running.
+
+        The dashboard monitors this file to show the bot's activity status.
+
+        Args:
+            markets_scanned: Number of markets scanned this cycle
+            signals_generated: Number of signals generated this cycle
+        """
+        import os
+
+        heartbeat_path = os.environ.get("HEARTBEAT_FILE", "/tmp/milkbot_heartbeat.txt")
+        try:
+            now = datetime.now(timezone.utc).isoformat()
+            heartbeat_data = f"{now}|{markets_scanned}|{signals_generated}"
+            with open(heartbeat_path, "w") as f:
+                f.write(heartbeat_data)
+            logger.debug("heartbeat_written", path=heartbeat_path)
+        except Exception as e:
+            logger.warning("heartbeat_write_failed", error=str(e))
 
     def _check_aggregate_risk(self) -> bool:
         """Check aggregate risk across all cities.

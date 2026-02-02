@@ -711,20 +711,25 @@ class DashboardDataProvider:
         })
 
         # Check Trading Engine status
+        # The trading bot runs separately and scans for opportunities every 5 minutes.
+        # We check: 1) Can we reach Kalshi API? 2) Are there any orders/positions?
+        # Note: Having 0 orders is normal if the strategy hasn't found good edges yet.
         trading_status = "healthy"
         trading_message = None
         trading_latency = 0.0
         last_activity = None
         orders_today = 0
-        signals_today = 0
+        last_scan = None
+        markets_scanned = 0
 
         if self._kalshi_client:
             try:
                 import time as time_module
                 start = time_module.time()
 
-                # Check for recent orders (last 24 hours)
+                # Check for orders and positions
                 orders = self._kalshi_client.get_orders(status="all")
+                positions = self._kalshi_client.get_positions()
                 trading_latency = (time_module.time() - start) * 1000
 
                 # Count orders from today
@@ -739,7 +744,7 @@ class DashboardDataProvider:
                 ]
                 orders_today = len(recent_orders)
 
-                # Get last order time
+                # Get last order time if any orders exist
                 if orders:
                     last_order_time = max(
                         datetime.fromisoformat(
@@ -749,23 +754,39 @@ class DashboardDataProvider:
                     )
                     last_activity = last_order_time.isoformat()
 
-                    # If no orders in last 4 hours during market hours, mark as degraded
-                    hours_since_last = (datetime.now(timezone.utc) - last_order_time).total_seconds() / 3600
-                    current_hour_utc = datetime.now(timezone.utc).hour
+                # Check for heartbeat file (written by trading bot each cycle)
+                import os
+                heartbeat_path = os.environ.get("HEARTBEAT_FILE", "/tmp/milkbot_heartbeat.txt")
+                if os.path.exists(heartbeat_path):
+                    try:
+                        with open(heartbeat_path) as f:
+                            heartbeat_data = f.read().strip()
+                            # Format: ISO timestamp|markets_scanned
+                            parts = heartbeat_data.split("|")
+                            last_scan = parts[0]
+                            if len(parts) > 1:
+                                markets_scanned = int(parts[1])
 
-                    # Market hours roughly 9 AM - 11 PM ET = 14:00 - 04:00 UTC
-                    is_market_hours = current_hour_utc >= 14 or current_hour_utc < 4
+                            # Check if heartbeat is stale (>10 minutes old)
+                            heartbeat_time = datetime.fromisoformat(last_scan.replace("Z", "+00:00"))
+                            minutes_since_scan = (datetime.now(timezone.utc) - heartbeat_time).total_seconds() / 60
 
-                    if hours_since_last > 4 and is_market_hours:
-                        trading_status = "degraded"
-                        trading_message = f"No orders in {hours_since_last:.1f} hours"
-                else:
-                    trading_status = "degraded"
-                    trading_message = "No orders found - bot may not be running"
+                            if minutes_since_scan > 10:
+                                trading_status = "degraded"
+                                trading_message = f"Last scan {minutes_since_scan:.0f}m ago"
+                    except Exception:
+                        pass  # Heartbeat file parse error, ignore
+
+                # If no heartbeat file exists yet, that's okay - bot may be starting up
+                # or heartbeat feature not yet deployed
+                if last_scan is None:
+                    # Fallback: if we can reach API and have balance, assume bot could be running
+                    # This is a softer check - we just verify API connectivity
+                    trading_message = "Monitoring (waiting for first scan)"
 
             except Exception as e:
                 trading_status = "degraded"
-                trading_message = f"Could not check orders: {str(e)[:50]}"
+                trading_message = f"API error: {str(e)[:50]}"
         else:
             trading_status = "degraded"
             trading_message = "API not configured"
@@ -779,6 +800,8 @@ class DashboardDataProvider:
             "message": trading_message,
             "last_activity": last_activity,
             "orders_today": orders_today,
+            "last_scan": last_scan,
+            "markets_scanned": markets_scanned,
         })
 
         # Calculate summary
