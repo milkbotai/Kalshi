@@ -602,13 +602,36 @@ def render_health_tab(data_provider: DashboardDataProvider) -> None:
                 status = comp.get("status", "unknown")
                 icon = "✅" if status == "healthy" else "⚠️" if status == "degraded" else "❌"
                 color = "#10b981" if status == "healthy" else "#f59e0b" if status == "degraded" else "#ef4444"
-                
+
                 with comp_cols[idx % 2]:
                     latency = comp.get("latency_ms")
                     latency_text = f"{latency:.0f}ms" if latency else "N/A"
                     error_rate = comp.get("error_rate")
                     error_text = f"{error_rate*100:.1f}%" if error_rate else "0%"
-                    
+
+                    # Extra info for Trading Engine
+                    extra_html = ""
+                    if comp.get("name") == "Trading Engine":
+                        orders_today = comp.get("orders_today", 0)
+                        last_activity = comp.get("last_activity")
+                        if last_activity:
+                            try:
+                                last_dt = datetime.fromisoformat(last_activity.replace("Z", "+00:00"))
+                                import pytz
+                                nyc_tz = pytz.timezone("America/New_York")
+                                last_dt_nyc = last_dt.astimezone(nyc_tz)
+                                last_activity_text = last_dt_nyc.strftime("%-I:%M %p %m/%d")
+                            except Exception:
+                                last_activity_text = "Unknown"
+                        else:
+                            last_activity_text = "None"
+                        extra_html = f"""
+                        <div style="display:flex;gap:16px;color:#9ca3af;font-size:11px;margin-top:6px;padding-top:6px;border-top:1px solid #2d333b;">
+                            <span>Orders Today: <b style="color:#a78bfa;">{orders_today}</b></span>
+                            <span>Last Activity: <b style="color:#00ffc8;">{last_activity_text}</b></span>
+                        </div>
+                        """
+
                     st.markdown(f"""
                     <div style="background:#1a1f2e;padding:12px;border-radius:6px;margin-bottom:8px;border:1px solid #2d333b;">
                         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
@@ -619,6 +642,7 @@ def render_health_tab(data_provider: DashboardDataProvider) -> None:
                             <span>Latency: <b style="color:#00d9ff;">{latency_text}</b></span>
                             <span>Error Rate: <b style="color:#00d9ff;">{error_text}</b></span>
                         </div>
+                        {extra_html}
                     </div>
                     """, unsafe_allow_html=True)
         else:

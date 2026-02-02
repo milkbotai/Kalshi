@@ -710,6 +710,77 @@ class DashboardDataProvider:
             "message": None,
         })
 
+        # Check Trading Engine status
+        trading_status = "healthy"
+        trading_message = None
+        trading_latency = 0.0
+        last_activity = None
+        orders_today = 0
+        signals_today = 0
+
+        if self._kalshi_client:
+            try:
+                import time as time_module
+                start = time_module.time()
+
+                # Check for recent orders (last 24 hours)
+                orders = self._kalshi_client.get_orders(status="all")
+                trading_latency = (time_module.time() - start) * 1000
+
+                # Count orders from today
+                today_start = datetime.now(timezone.utc).replace(
+                    hour=0, minute=0, second=0, microsecond=0
+                )
+                recent_orders = [
+                    o for o in orders
+                    if datetime.fromisoformat(
+                        o.get("created_time", "2000-01-01T00:00:00Z").replace("Z", "+00:00")
+                    ) > today_start
+                ]
+                orders_today = len(recent_orders)
+
+                # Get last order time
+                if orders:
+                    last_order_time = max(
+                        datetime.fromisoformat(
+                            o.get("created_time", "2000-01-01T00:00:00Z").replace("Z", "+00:00")
+                        )
+                        for o in orders
+                    )
+                    last_activity = last_order_time.isoformat()
+
+                    # If no orders in last 4 hours during market hours, mark as degraded
+                    hours_since_last = (datetime.now(timezone.utc) - last_order_time).total_seconds() / 3600
+                    current_hour_utc = datetime.now(timezone.utc).hour
+
+                    # Market hours roughly 9 AM - 11 PM ET = 14:00 - 04:00 UTC
+                    is_market_hours = current_hour_utc >= 14 or current_hour_utc < 4
+
+                    if hours_since_last > 4 and is_market_hours:
+                        trading_status = "degraded"
+                        trading_message = f"No orders in {hours_since_last:.1f} hours"
+                else:
+                    trading_status = "degraded"
+                    trading_message = "No orders found - bot may not be running"
+
+            except Exception as e:
+                trading_status = "degraded"
+                trading_message = f"Could not check orders: {str(e)[:50]}"
+        else:
+            trading_status = "degraded"
+            trading_message = "API not configured"
+
+        components.append({
+            "name": "Trading Engine",
+            "status": trading_status,
+            "last_check": now.isoformat(),
+            "latency_ms": round(trading_latency, 2),
+            "error_rate": 0,
+            "message": trading_message,
+            "last_activity": last_activity,
+            "orders_today": orders_today,
+        })
+
         # Calculate summary
         healthy = sum(1 for c in components if c["status"] == "healthy")
         degraded = sum(1 for c in components if c["status"] == "degraded")
