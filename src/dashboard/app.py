@@ -608,10 +608,10 @@ def render_health_tab(data_provider: DashboardDataProvider) -> None:
                     latency_text = f"{latency:.0f}ms" if latency else "N/A"
                     error_rate = comp.get("error_rate")
                     error_text = f"{error_rate*100:.1f}%" if error_rate else "0%"
+                    comp_name = comp.get('name', 'Unknown')
 
-                    # Extra info for Trading Engine
-                    extra_html = ""
-                    if comp.get("name") == "Trading Engine":
+                    # Check if this is the Trading Engine component
+                    if comp_name == "Trading Engine":
                         orders_today = comp.get("orders_today", 0)
                         last_activity = comp.get("last_activity")
                         if last_activity:
@@ -625,26 +625,36 @@ def render_health_tab(data_provider: DashboardDataProvider) -> None:
                                 last_activity_text = "Unknown"
                         else:
                             last_activity_text = "None"
-                        extra_html = f"""
-                        <div style="display:flex;gap:16px;color:#9ca3af;font-size:11px;margin-top:6px;padding-top:6px;border-top:1px solid #2d333b;">
-                            <span>Orders Today: <b style="color:#a78bfa;">{orders_today}</b></span>
-                            <span>Last Activity: <b style="color:#00ffc8;">{last_activity_text}</b></span>
-                        </div>
-                        """
 
-                    st.markdown(f"""
-                    <div style="background:#1a1f2e;padding:12px;border-radius:6px;margin-bottom:8px;border:1px solid #2d333b;">
-                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                            <span style="font-size:14px;font-weight:600;color:#fff;">{icon} {comp.get('name', 'Unknown')}</span>
-                            <span style="color:{color};font-weight:600;text-transform:uppercase;font-size:12px;">{status}</span>
+                        st.markdown(f"""
+                        <div style="background:#1a1f2e;padding:12px;border-radius:6px;margin-bottom:8px;border:1px solid #2d333b;">
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                                <span style="font-size:14px;font-weight:600;color:#fff;">{icon} {comp_name}</span>
+                                <span style="color:{color};font-weight:600;text-transform:uppercase;font-size:12px;">{status}</span>
+                            </div>
+                            <div style="display:flex;gap:16px;color:#9ca3af;font-size:11px;">
+                                <span>Latency: <b style="color:#00d9ff;">{latency_text}</b></span>
+                                <span>Error Rate: <b style="color:#00d9ff;">{error_text}</b></span>
+                            </div>
+                            <div style="display:flex;gap:16px;color:#9ca3af;font-size:11px;margin-top:6px;padding-top:6px;border-top:1px solid #2d333b;">
+                                <span>Orders Today: <b style="color:#a78bfa;">{orders_today}</b></span>
+                                <span>Last Activity: <b style="color:#00ffc8;">{last_activity_text}</b></span>
+                            </div>
                         </div>
-                        <div style="display:flex;gap:16px;color:#9ca3af;font-size:11px;">
-                            <span>Latency: <b style="color:#00d9ff;">{latency_text}</b></span>
-                            <span>Error Rate: <b style="color:#00d9ff;">{error_text}</b></span>
+                        """, unsafe_allow_html=True)
+                    else:
+                        st.markdown(f"""
+                        <div style="background:#1a1f2e;padding:12px;border-radius:6px;margin-bottom:8px;border:1px solid #2d333b;">
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                                <span style="font-size:14px;font-weight:600;color:#fff;">{icon} {comp_name}</span>
+                                <span style="color:{color};font-weight:600;text-transform:uppercase;font-size:12px;">{status}</span>
+                            </div>
+                            <div style="display:flex;gap:16px;color:#9ca3af;font-size:11px;">
+                                <span>Latency: <b style="color:#00d9ff;">{latency_text}</b></span>
+                                <span>Error Rate: <b style="color:#00d9ff;">{error_text}</b></span>
+                            </div>
                         </div>
-                        {extra_html}
-                    </div>
-                    """, unsafe_allow_html=True)
+                        """, unsafe_allow_html=True)
         else:
             st.info("No component data available")
     else:
