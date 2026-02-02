@@ -1,117 +1,148 @@
-================================================================================
-MILKBOT CLIMATE EXCHANGE - QUICK REFERENCE CARD
-================================================================================
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                    MILKBOT DESIGN SYSTEM — QUICK REFERENCE                   ║
+║                          Binary Rogue | v1.0                                  ║
+╚══════════════════════════════════════════════════════════════════════════════╝
 
-HEADER TYPOGRAPHY
-═══════════════════════════════════════════════════════════════════════════════
 
-MilkBot
-───────
-Font:      Freckle Face, cursive
-Size:      56px → 40px mobile
-Color:     #94a3b8
-Weight:    normal
-Line-h:    1
-Margin:    0 0 4px 0
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  HEADER TYPOGRAPHY                                                           │
+└──────────────────────────────────────────────────────────────────────────────┘
 
-CLIMATE EXCHANGE
-────────────────
-Font:      Inter, sans-serif
-Size:      42px → 28px mobile
-Color:     linear-gradient(90deg, #00ffc8, #00d9ff, #a78bfa)
-Weight:    800
-Transform: UPPERCASE
-Letter:    2px → 1px mobile
-Line-h:    1
-Margin:    0 0 6px 0
+  MilkBot
+  ────────────────────────────────────────────────────────────────────────────
+  Font:        Freckle Face, cursive (local WOFF2)
+  Size:        56px → 40px mobile
+  Color:       #94a3b8 (Slate Gray)
+  Weight:      normal
 
-"Glitch The System. Burn The Map."
-──────────────────────────────────
-Font:      JetBrains Mono, monospace
-Size:      22px → 15px mobile
-Color:     #1e90ff
-Weight:    600
-Style:     italic
-Line-h:    1.2
-Margin:    8px 0 0 0
+  CLIMATE EXCHANGE
+  ────────────────────────────────────────────────────────────────────────────
+  Font:        Inter, sans-serif
+  Size:        42px → 28px mobile
+  Color:       linear-gradient(90deg, #00ffc8, #00d9ff, #a78bfa)
+  Weight:      800
+  Transform:   UPPERCASE
+  Spacing:     2px → 1px mobile
 
-COLOR PALETTE (18)
-═══════════════════════════════════════════════════════════════════════════════
+  "Glitch The System. Burn The Map."
+  ────────────────────────────────────────────────────────────────────────────
+  Font:        JetBrains Mono, monospace
+  Size:        22px → 15px mobile
+  Color:       #1e90ff (Dodger Blue)
+  Weight:      600
+  Style:       italic
 
-BACKGROUNDS                 STRUCTURE                  TEXT PRIMARY
-#0a0a0a  Deep Black         #2d333b  Border Gray       #ffffff  Pure White
-#0d1117  Darker Black       #4b5563  Separator Gray    #fafafa  Off White
-#1a1f2e  Dark Slate Blue                              #94a3b8  Slate Gray
 
-TEXT SECONDARY              BRAND/ACCENT               SIGNAL/STATUS
-#6b7280  Medium Gray        #00ffc8  Cyan Green       #06b6d4  Cyan
-                            #00d9ff  Bright Cyan      #10b981  Success Green
-                            #a78bfa  Purple           #f59e0b  Amber/Warning
-                            #1e90ff  Dodger Blue      #f97316  Orange
-                                                       #ef4444  Error Red
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  COLOR PALETTE (18 COLORS)                                                   │
+└──────────────────────────────────────────────────────────────────────────────┘
 
-KEY USAGE PATTERNS
-═══════════════════════════════════════════════════════════════════════════════
+  BACKGROUNDS                    STRUCTURE                    TEXT PRIMARY
+  ─────────────────────────────────────────────────────────────────────────────
+  #0a0a0a  Deep Black            #2d333b  Border Gray         #ffffff  Pure White
+  #0d1117  Darker Black          #4b5563  Separator Gray      #fafafa  Off White
+  #1a1f2e  Dark Slate Blue                                    #94a3b8  Slate Gray
 
-Cards:        bg #1a1f2e  border #2d333b  radius 8px
-Stats strip:  bg #0d1117  border #1a1f2e  radius 6px
-Stat labels:  #6b7280  9px  uppercase
-Stat values:  #00d9ff  13px  weight 600
-Temperatures: #00ffc8  28px  weight 700
-City names:   #fafafa  15px  weight 700
+  TEXT SECONDARY                 BRAND / ACCENT               SIGNAL / STATUS
+  ─────────────────────────────────────────────────────────────────────────────
+  #6b7280  Medium Gray           #00ffc8  Cyan Green          #06b6d4  Cyan (BUY)
+                                 #00d9ff  Bright Cyan         #10b981  Success Green
+                                 #a78bfa  Purple              #f59e0b  Amber/Warning
+                                 #1e90ff  Dodger Blue         #f97316  Orange (SELL)
+                                                              #ef4444  Error Red
 
-BUY     #06b6d4     Positive P&L  #10b981
-SELL    #f97316     Negative P&L  #ef4444
-HOLD    #6b7280     Volume        #a78bfa
 
-Tight spread    #10b981
-Medium spread   #f59e0b
-Wide spread     #ef4444
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  QUICK USAGE PATTERNS                                                        │
+└──────────────────────────────────────────────────────────────────────────────┘
 
-CSS CLASSES
-═══════════════════════════════════════════════════════════════════════════════
+  CARDS
+  ─────────────────────────────────────────────────────────────────────────────
+  Background:  #1a1f2e          Border:   1px solid #2d333b
+  Radius:      8px              Padding:  12px 8px
 
-.milkbot-title        "MilkBot" - Freckle Face 56px #94a3b8
-.climate-title        "CLIMATE EXCHANGE" - Inter 42px gradient
-.tagline              Quote - JetBrains Mono 22px italic #1e90ff
+  STATS STRIP
+  ─────────────────────────────────────────────────────────────────────────────
+  Background:  #0d1117          Border:   1px solid #1a1f2e
+  Radius:      6px              Padding:  12px 16px
 
-.city-card            Card bg #1a1f2e, border #2d333b
-.city-name-large      15px #fafafa weight 700
-.city-temp            28px #00ffc8 weight 700
-.city-code            18px #ffffff weight 700
+  DATA DISPLAY
+  ─────────────────────────────────────────────────────────────────────────────
+  Stat Labels:     #6b7280   9px   uppercase
+  Stat Values:     #00d9ff   13px  weight 600
+  Temperatures:    #00ffc8   28px  weight 700
+  City Names:      #fafafa   15px  weight 700
+  Volume:          #a78bfa   13px  weight 600
 
-.stat-label           9px #6b7280 uppercase
-.stat-value           13px #00d9ff weight 600
 
-.signal-buy           #06b6d4
-.signal-sell          #f97316
-.signal-hold          #6b7280
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  SIGNAL SYSTEM                                                               │
+└──────────────────────────────────────────────────────────────────────────────┘
 
-.spread-tight         #10b981
-.spread-medium        #f59e0b
-.spread-wide          #ef4444
+  TRADING SIGNALS                        SPREAD INDICATORS
+  ─────────────────────────────────────────────────────────────────────────────
+  BUY       #06b6d4  (Cyan)              Tight (1-2)    #10b981  (Green)
+  SELL      #f97316  (Orange)            Medium (3-4)   #f59e0b  (Amber)
+  HOLD      #6b7280  (Gray)              Wide (5+)      #ef4444  (Red)
 
-.volume-value         #a78bfa
-.pnl-positive         #10b981
-.pnl-negative         #ef4444
+  P&L STATES
+  ─────────────────────────────────────────────────────────────────────────────
+  Positive  #10b981  (Success Green)
+  Negative  #ef4444  (Error Red)
 
-GRADIENT
-═══════════════════════════════════════════════════════════════════════════════
 
-linear-gradient(90deg, #00ffc8, #00d9ff, #a78bfa)
-                       └─ 0%    └─ 50%   └─ 100%
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  CSS CLASSES                                                                 │
+└──────────────────────────────────────────────────────────────────────────────┘
 
-Applied ONLY to "CLIMATE EXCHANGE" title with:
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  HEADER                                 CARDS
+  ─────────────────────────────────────────────────────────────────────────────
+  .milkbot-title     #94a3b8 56px        .city-card           #1a1f2e bg
+  .climate-title     gradient 42px       .city-name-large     #fafafa 15px 700
+  .tagline           #1e90ff 22px        .city-temp           #00ffc8 28px 700
+                                         .city-code           #ffffff 18px 700
 
-SOURCE
-═══════════════════════════════════════════════════════════════════════════════
+  STATS                                  SIGNALS
+  ─────────────────────────────────────────────────────────────────────────────
+  .stat-label        #6b7280 9px         .signal-buy          #06b6d4
+  .stat-value        #00d9ff 13px 600    .signal-sell         #f97316
+  .volume-value      #a78bfa             .signal-hold         #6b7280
 
-Repository: https://github.com/milkbotai/Kalshi
-File:       src/dashboard/app.py
-SHA:        79900999ce4948d00b6600dc9ca8c124990c423c
-Verified:   February 1, 2026
+  STATUS
+  ─────────────────────────────────────────────────────────────────────────────
+  .pnl-positive      #10b981             .spread-tight        #10b981
+  .pnl-negative      #ef4444             .spread-medium       #f59e0b
+                                         .spread-wide         #ef4444
 
-════════════════════════════════════════════════════════════════════════════════
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  BRAND GRADIENT                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+  linear-gradient(90deg, #00ffc8, #00d9ff, #a78bfa)
+                         │        │        │
+                        0%      50%      100%
+
+  Applied to "CLIMATE EXCHANGE" title with:
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  RESPONSIVE (Mobile ≤768px)                                                  │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+  MilkBot:            56px → 40px
+  CLIMATE EXCHANGE:   42px → 28px    letter-spacing: 2px → 1px
+  Tagline:            22px → 15px
+  City name:          15px → 14px
+  Temperature:        28px → 24px
+  Stat labels:         9px → 10px
+  Stat values:        13px → 14px
+
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  Repository: github.com/milkbotai/Kalshi                                     ║
+║  Source: src/dashboard/app.py                                                ║
+║  Updated: February 1, 2026                                                   ║
+╚══════════════════════════════════════════════════════════════════════════════╝
