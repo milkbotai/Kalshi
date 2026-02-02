@@ -1,0 +1,19 @@
+Hex Code,Color Name,Category,Detailed Usage,Contrast vs #0a0a0a,Contrast vs #1a1f2e,Contrast vs #ffffff
+#0a0a0a,Deep Black,Background,"Main page background, App container [data-testid=""stAppViewContainer""]",100%,100%,100%
+#0d1117,Darker Black,Background,Stats strip cards background,100%,100%,100%
+#1a1f2e,Dark Slate Blue,Background,"All card backgrounds: city cards, breakdown cards, performance cards, tab backgrounds",100%,100%,100%
+#2d333b,Border Gray,Structure,"Card borders, divider lines, status row divider",100%,100%,100%
+#4b5563,Separator Gray,Structure,Status bar pipes/separators,100%,100%,100%
+#ffffff,Pure White,Text Primary,City codes in breakdown cards (highest contrast),100%,100%,100%
+#fafafa,Off White,Text Primary,"City names, primary headlines, section headers",100%,100%,100%
+#94a3b8,Slate Gray,Text Primary,MilkBot title (Freckle Face 56px/40px),100%,100%,100%
+#6b7280,Medium Gray,Text Secondary,"Labels, secondary text, HOLD signals, metadata, stats strip labels",100%,100%,100%
+#00ffc8,Cyan Green,Brand/Accent,"Temperature values, gradient START, stats strip positive values",100%,100%,100%
+#00d9ff,Bright Cyan,Brand/Accent,"Stat values, gradient MIDDLE, portfolio values, win rate, top city",100%,100%,100%
+#a78bfa,Purple,Brand/Accent,"Volume values, gradient END",100%,100%,100%
+#1e90ff,Dodger Blue,Brand/Accent,Tagline text (JetBrains Mono 22px/15px italic 600),100%,100%,100%
+#06b6d4,Cyan,Signal/Status,BUY signals,100%,100%,100%
+#10b981,Success Green,Signal/Status,"Tight spreads, positive P&L, LIVE indicator, success states",100%,100%,100%
+#f59e0b,Amber/Warning,Signal/Status,"Medium spreads, caution states, moderate drawdown",100%,100%,100%
+#f97316,Orange,Signal/Status,"SELL signals, anti-frontrun notice, warnings",100%,100%,100%
+#ef4444,Error Red,Signal/Status,"Wide spreads, negative P&L, losses, high drawdown",100%,100%,100%
