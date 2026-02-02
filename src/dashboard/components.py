@@ -206,26 +206,7 @@ def render_equity_chart(equity_data: list[dict[str, Any]]) -> None:
         margin=dict(l=0, r=0, t=30, b=0),
     )
 
-    st.plotly_chart(fig, width='stretch')
-
-    # Summary metrics below chart
-    col1, col2, col3, col4 = st.columns(4)
-
-    with col1:
-        start_equity = equity_data[0].get("ending_equity", 0) - equity_data[0].get("daily_pnl", 0)
-        st.metric("Starting Equity", f"${start_equity:,.2f}")
-
-    with col2:
-        end_equity = equity_data[-1].get("ending_equity", 0)
-        st.metric("Current Equity", f"${end_equity:,.2f}")
-
-    with col3:
-        total_return = equity_data[-1].get("cumulative_pnl", 0)
-        st.metric("Total Return", f"${total_return:,.2f}")
-
-    with col4:
-        max_dd = max(p.get("drawdown_pct", 0) for p in equity_data)
-        st.metric("Max Drawdown", f"{max_dd:.1f}%")
+    st.plotly_chart(fig, use_container_width=True)
 
 
 def render_trade_feed(trades: list[dict[str, Any]]) -> None:
