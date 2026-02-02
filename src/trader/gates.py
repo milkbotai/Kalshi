@@ -135,9 +135,9 @@ def check_all_gates(
     signal: Signal,
     market: Market,
     quantity: int,
-    max_spread_cents: int = 5,
-    min_liquidity_multiple: float = 2.0,
-    min_edge_cents: float = 0.5,
+    max_spread_cents: int = 8,
+    min_liquidity_multiple: float = 1.0,
+    min_edge_cents: float = 0.1,
 ) -> tuple[bool, list[str]]:
     """Check all execution gates.
 
