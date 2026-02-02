@@ -323,12 +323,13 @@ def render_stats_strip(data_provider: DashboardDataProvider) -> None:
     equity_data = data_provider.get_equity_curve()
     city_metrics = data_provider.get_city_metrics()
     
+    starting_bankroll = int(os.environ.get("BANKROLL", "1500"))
     if equity_data:
-        current_equity = equity_data[-1].get("ending_equity", 5000)
+        current_equity = equity_data[-1].get("ending_equity", starting_bankroll)
         daily_pnl = equity_data[-1].get("daily_pnl", 0)
         total_pnl = equity_data[-1].get("cumulative_pnl", 0)
     else:
-        current_equity = 5000
+        current_equity = starting_bankroll
         daily_pnl = 0
         total_pnl = 0
     
@@ -456,14 +457,15 @@ def render_performance_tab(data_provider: DashboardDataProvider) -> None:
     start_date = end_date - timedelta(days=30)
     equity_data = data_provider.get_equity_curve(start_date, end_date)
     
+    starting_bankroll = int(os.environ.get("BANKROLL", "1500"))
     if equity_data:
-        start_equity = equity_data[0].get("ending_equity", 5000) - equity_data[0].get("daily_pnl", 0)
-        end_equity = equity_data[-1].get("ending_equity", 5000)
+        start_equity = equity_data[0].get("ending_equity", starting_bankroll) - equity_data[0].get("daily_pnl", 0)
+        end_equity = equity_data[-1].get("ending_equity", starting_bankroll)
         total_return = equity_data[-1].get("cumulative_pnl", 0)
         max_dd = max(p.get("drawdown_pct", 0) for p in equity_data)
     else:
-        start_equity = 5000
-        end_equity = 5000
+        start_equity = starting_bankroll
+        end_equity = starting_bankroll
         total_return = 0
         max_dd = 0
     

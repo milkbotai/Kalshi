@@ -357,7 +357,7 @@ def update_strategy_metrics(
 def update_equity_curve(
     engine: Engine,
     target_date: date | None = None,
-    initial_equity: Decimal = Decimal("5000.00"),
+    initial_equity: Decimal = Decimal("1500.00"),
 ) -> bool:
     """Update equity curve for a specific date.
 
