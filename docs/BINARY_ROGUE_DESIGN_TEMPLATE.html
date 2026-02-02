@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Binary Rogue Design System Template</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --br-bg-deep: #0a0a0a;
+            --br-bg-darker: #0d1117;
+            --br-bg-card: #1a1f2e;
+            --br-border: #2d333b;
+            --br-separator: #4b5563;
+            --br-text-white: #ffffff;
+            --br-text-primary: #fafafa;
+            --br-text-muted: #94a3b8;
+            --br-text-secondary: #6b7280;
+            --br-accent-cyan-green: #00ffc8;
+            --br-accent-cyan: #00d9ff;
+            --br-accent-purple: #a78bfa;
+            --br-accent-blue: #1e90ff;
+            --br-status-info: #06b6d4;
+            --br-status-success: #10b981;
+            --br-status-warning: #f59e0b;
+            --br-status-alert: #f97316;
+            --br-status-error: #ef4444;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--br-bg-deep);
+            color: var(--br-text-primary);
+            line-height: 1.6;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        /* Header */
+        .doc-header {
+            text-align: center;
+            margin-bottom: 60px;
+            padding-bottom: 40px;
+            border-bottom: 1px solid var(--br-border);
+        }
+
+        .doc-title {
+            font-size: 48px;
+            color: var(--br-text-muted);
+            margin-bottom: 8px;
+        }
+
+        .doc-subtitle {
+            font-size: 32px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            background: linear-gradient(90deg, #00ffc8, #00d9ff, #a78bfa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 12px;
+        }
+
+        .doc-tagline {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 16px;
+            font-style: italic;
+            color: var(--br-accent-blue);
+        }
+
+        .doc-version {
+            font-size: 12px;
+            color: var(--br-text-secondary);
+            margin-top: 20px;
+        }
+
+        /* Sections */
+        .section {
+            margin-bottom: 60px;
+        }
+
+        .section-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--br-text-primary);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .section-title::before {
+            content: '';
+            width: 4px;
+            height: 24px;
+            background: linear-gradient(180deg, #00ffc8, #a78bfa);
+            border-radius: 2px;
+        }
+
+        .section-desc {
+            color: var(--br-text-secondary);
+            font-size: 14px;
+            margin-bottom: 24px;
+            padding-left: 16px;
+        }
+
+        /* Color Grid */
+        .color-category {
+            margin-bottom: 32px;
+        }
+
+        .category-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--br-accent-cyan);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--br-bg-card);
+        }
+
+        .color-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 12px;
+        }
+
+        .color-card {
+            background: var(--br-bg-card);
+            border: 1px solid var(--br-border);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .color-swatch {
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .color-info {
+            padding: 12px;
+        }
+
+        .color-name {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--br-text-primary);
+            margin-bottom: 2px;
+        }
+
+        .color-var {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            color: var(--br-accent-cyan);
+        }
+
+        /* Component Examples */
+        .component-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+        }
+
+        .component-box {
+            background: var(--br-bg-card);
+            border: 1px solid var(--br-border);
+            border-radius: 12px;
+            padding: 24px;
+        }
+
+        .component-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--br-text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 16px;
+        }
+
+        /* Example Components */
+        .example-card {
+            background: var(--br-bg-card);
+            border: 1px solid var(--br-border);
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+        }
+
+        .example-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--br-text-primary);
+            margin-bottom: 4px;
+        }
+
+        .example-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--br-accent-cyan-green);
+            margin-bottom: 8px;
+        }
+
+        .example-stat-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4px;
+        }
+
+        .example-stat-label {
+            font-size: 9px;
+            color: var(--br-text-secondary);
+            text-transform: uppercase;
+        }
+
+        .example-stat-value {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--br-accent-cyan);
+        }
+
+        /* Link Card Example */
+        .example-link-card {
+            background: var(--br-bg-card);
+            border: 1px solid var(--br-border);
+            border-radius: 8px;
+            padding: 12px 16px;
+            display: block;
+            text-decoration: none;
+        }
+
+        .example-link-source {
+            font-size: 10px;
+            color: var(--br-text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        .example-link-headline {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--br-text-primary);
+            margin-bottom: 8px;
+        }
+
+        .example-link-meta {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: var(--br-text-secondary);
+        }
+
+        .example-link-category {
+            color: var(--br-accent-cyan);
+        }
+
+        /* Metric Card Example */
+        .example-metric {
+            background: var(--br-bg-card);
+            border: 1px solid var(--br-border);
+            border-radius: 8px;
+            padding: 16px;
+            text-align: center;
+        }
+
+        .example-metric-label {
+            font-size: 11px;
+            color: var(--br-text-secondary);
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+
+        .example-metric-value {
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--br-accent-cyan-green);
+            margin-bottom: 8px;
+        }
+
+        .example-metric-change {
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .positive { color: var(--br-status-success); }
+        .negative { color: var(--br-status-error); }
+
+        /* Typography Examples */
+        .type-example {
+            margin-bottom: 24px;
+            padding-bottom: 24px;
+            border-bottom: 1px solid var(--br-border);
+        }
+
+        .type-example:last-child {
+            border-bottom: none;
+        }
+
+        .type-preview {
+            margin-bottom: 12px;
+        }
+
+        .type-specs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .type-spec {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .type-spec-label {
+            font-size: 10px;
+            color: var(--br-text-secondary);
+            text-transform: uppercase;
+        }
+
+        .type-spec-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: var(--br-accent-cyan);
+        }
+
+        /* Code Block */
+        .code-block {
+            background: var(--br-bg-darker);
+            border: 1px solid var(--br-border);
+            border-radius: 8px;
+            padding: 16px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: var(--br-accent-cyan);
+            overflow-x: auto;
+            white-space: pre;
+        }
+
+        .code-comment { color: var(--br-text-secondary); }
+        .code-property { color: var(--br-accent-purple); }
+        .code-value { color: var(--br-accent-cyan-green); }
+
+        /* Footer */
+        .doc-footer {
+            text-align: center;
+            padding-top: 40px;
+            border-top: 1px solid var(--br-border);
+            margin-top: 60px;
+        }
+
+        .footer-brand {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--br-text-primary);
+            margin-bottom: 8px;
+        }
+
+        .footer-tagline {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            font-style: italic;
+            color: var(--br-accent-blue);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+
+        <!-- Header -->
+        <header class="doc-header">
+            <div class="doc-title">Binary Rogue</div>
+            <div class="doc-subtitle">Design System Template</div>
+            <div class="doc-tagline">"Glitch The System. Burn The Map."</div>
+            <div class="doc-version">Universal Template v2.0 | February 2026</div>
+        </header>
+
+        <!-- Quick Start -->
+        <section class="section">
+            <h2 class="section-title">Quick Start Checklist</h2>
+            <p class="section-desc">Complete these steps when starting a new Binary Rogue site.</p>
+
+            <div class="component-box">
+                <div style="line-height: 2; font-size: 14px;">
+                    <div>1. Copy <code style="color: var(--br-accent-cyan);">binary-rogue.css</code> to your project</div>
+                    <div>2. Include Google Fonts (Inter + JetBrains Mono)</div>
+                    <div>3. Add Freckle Face font locally</div>
+                    <div>4. Set <code style="color: var(--br-accent-cyan);">{{SITE_NAME}}</code> and <code style="color: var(--br-accent-cyan);">{{SITE_SUBTITLE}}</code></div>
+                    <div>5. Choose your tagline</div>
+                    <div>6. Select card variants for your use case</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Color Palette -->
+        <section class="section">
+            <h2 class="section-title">Color Palette</h2>
+            <p class="section-desc">18 colors organized by function. Use CSS variables for consistency.</p>
+
+            <!-- Backgrounds -->
+            <div class="color-category">
+                <h3 class="category-title">Backgrounds</h3>
+                <div class="color-grid">
+                    <div class="color-card">
+                        <div class="color-swatch" style="background: #0a0a0a; color: #6b7280;">#0a0a0a</div>
+                        <div class="color-info">
+                            <div class="color-name">Deep Black</div>
+                            <div class="color-var">--br-bg-deep</div>
+                        </div>
+                    </div>
+                    <div class="color-card">
+                        <div class="color-swatch" style="background: #0d1117; color: #6b7280;">#0d1117</div>
+                        <div class="color-info">
+                            <div class="color-name">Darker Black</div>
+                            <div class="color-var">--br-bg-darker</div>
+                        </div>
+                    </div>
+                    <div class="color-card">
+                        <div class="color-swatch" style="background: #1a1f2e; color: #6b7280;">#1a1f2e</div>
+                        <div class="color-info">
+                            <div class="color-name">Dark Slate Blue</div>
+                            <div class="color-var">--br-bg-card</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Structure -->
+            <div class="color-category">
+                <h3 class="category-title">Structure</h3>
+                <div class="color-grid">
+                    <div class="color-card">
+                        <div class="color-swatch" style="background: #2d333b; color: #6b7280;">#2d333b</div>
+                        <div class="color-info">
+                            <div class="color-name">Border Gray</div>
+                            <div class="color-var">--br-border</div>
+                        </div>
+                    </div>
+                    <div class="color-card">
+                        <div class="color-swatch" style="background: #4b5563; color: #fafafa;">#4b5563</div>
+                        <div class="color-info">
+                            <div class="color-name">Separator Gray</div>
+                            <div class="color-var">--br-separator</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Text -->
+            <div class="color-category">
+                <h3 class="category-title">Text</h3>
+                <div class="color-grid">
+                    <div class="color-card">
+                        <div class="color-swatch" style="background: #ffffff; color: #0a0a0a;">#ffffff</div>
+                        <div class="color-info">
+                            <div class="color-name">Pure White</div>
+                            <div class="color-var">--br-text-white</div>
+                        </div>
+                    </div>
+                    <div class="color-card">
+                        <div class="color-swatch" style="background: #fafafa; color: #0a0a0a;">#fafafa</div>
+                        <div class="color-info">
+                            <div class="color-name">Off White</div>
+                            <div class="color-var">--br-text-primary</div>
+                        </div>
+                    </div>
+                    <div class="color-card">
+                        <div class="color-swatch" style="background: #94a3b8; color: #0a0a0a;">#94a3b8</div>
+                        <div class="color-info">
+                            <div class="color-name">Slate Gray</div>
+                            <div class="color-var">--br-text-muted</div>
+                        </div>
+                    </div>
+                    <div class="color-card">
+                        <div class="color-swatch" style="background: #6b7280; color: #fafafa;">#6b7280</div>
+                        <div class="color-info">
+                            <div class="color-name">Medium Gray</div>
+                            <div class="color-var">--br-text-secondary</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Brand Accent -->
+            <div class="color-category">
+                <h3 class="category-title">Brand / Accent</h3>
+                <div class="color-grid">
+                    <div class="color-card">
+                        <div class="color-swatch" style="background: #00ffc8; color: #0a0a0a;">#00ffc8</div>
+                        <div class="color-info">
+                            <div class="color-name">Cyan Green</div>
+                            <div class="color-var">--br-accent-cyan-green</div>
+                        </div>
+                    </div>
+                    <div class="color-card">
+                        <div class="color-swatch" style="background: #00d9ff; color: #0a0a0a;">#00d9ff</div>
+                        <div class="color-info">
+                            <div class="color-name">Bright Cyan</div>
+                            <div class="color-var">--br-accent-cyan</div>
+                        </div>
+                    </div>
+                    <div class="color-card">
+                        <div class="color-swatch" style="background: #a78bfa; color: #0a0a0a;">#a78bfa</div>
+                        <div class="color-info">
+                            <div class="color-name">Purple</div>
+                            <div class="color-var">--br-accent-purple</div>
+                        </div>
+                    </div>
+                    <div class="color-card">
+                        <div class="color-swatch" style="background: #1e90ff; color: #0a0a0a;">#1e90ff</div>
+                        <div class="color-info">
+                            <div class="color-name">Dodger Blue</div>
+                            <div class="color-var">--br-accent-blue</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Status -->
+            <div class="color-category">
+                <h3 class="category-title">Status</h3>
+                <div class="color-grid">
+                    <div class="color-card">
+                        <div class="color-swatch" style="background: #06b6d4; color: #0a0a0a;">#06b6d4</div>
+                        <div class="color-info">
+                            <div class="color-name">Info Cyan</div>
+                            <div class="color-var">--br-status-info</div>
+                        </div>
+                    </div>
+                    <div class="color-card">
+                        <div class="color-swatch" style="background: #10b981; color: #0a0a0a;">#10b981</div>
+                        <div class="color-info">
+                            <div class="color-name">Success Green</div>
+                            <div class="color-var">--br-status-success</div>
+                        </div>
+                    </div>
+                    <div class="color-card">
+                        <div class="color-swatch" style="background: #f59e0b; color: #0a0a0a;">#f59e0b</div>
+                        <div class="color-info">
+                            <div class="color-name">Amber Warning</div>
+                            <div class="color-var">--br-status-warning</div>
+                        </div>
+                    </div>
+                    <div class="color-card">
+                        <div class="color-swatch" style="background: #f97316; color: #0a0a0a;">#f97316</div>
+                        <div class="color-info">
+                            <div class="color-name">Orange Alert</div>
+                            <div class="color-var">--br-status-alert</div>
+                        </div>
+                    </div>
+                    <div class="color-card">
+                        <div class="color-swatch" style="background: #ef4444; color: #ffffff;">#ef4444</div>
+                        <div class="color-info">
+                            <div class="color-name">Error Red</div>
+                            <div class="color-var">--br-status-error</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Typography -->
+        <section class="section">
+            <h2 class="section-title">Typography</h2>
+            <p class="section-desc">Three fonts create visual hierarchy and brand identity.</p>
+
+            <div class="component-box">
+                <div class="type-example">
+                    <div class="type-preview">
+                        <div style="font-size: 48px; color: #94a3b8;">Site Name</div>
+                    </div>
+                    <div class="type-specs">
+                        <div class="type-spec"><span class="type-spec-label">Font</span><span class="type-spec-value">Freckle Face</span></div>
+                        <div class="type-spec"><span class="type-spec-label">Size</span><span class="type-spec-value">56px / 40px</span></div>
+                        <div class="type-spec"><span class="type-spec-label">Color</span><span class="type-spec-value">#94a3b8</span></div>
+                        <div class="type-spec"><span class="type-spec-label">Class</span><span class="type-spec-value">.br-site-name</span></div>
+                    </div>
+                </div>
+
+                <div class="type-example">
+                    <div class="type-preview">
+                        <div style="font-size: 32px; font-weight: 800; text-transform: uppercase; letter-spacing: 2px; background: linear-gradient(90deg, #00ffc8, #00d9ff, #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">SITE SUBTITLE</div>
+                    </div>
+                    <div class="type-specs">
+                        <div class="type-spec"><span class="type-spec-label">Font</span><span class="type-spec-value">Inter</span></div>
+                        <div class="type-spec"><span class="type-spec-label">Size</span><span class="type-spec-value">42px / 28px</span></div>
+                        <div class="type-spec"><span class="type-spec-label">Weight</span><span class="type-spec-value">800</span></div>
+                        <div class="type-spec"><span class="type-spec-label">Color</span><span class="type-spec-value">Gradient</span></div>
+                        <div class="type-spec"><span class="type-spec-label">Class</span><span class="type-spec-value">.br-site-subtitle</span></div>
+                    </div>
+                </div>
+
+                <div class="type-example">
+                    <div class="type-preview">
+                        <div style="font-family: 'JetBrains Mono', monospace; font-size: 18px; font-style: italic; font-weight: 600; color: #1e90ff;">"Tagline Goes Here"</div>
+                    </div>
+                    <div class="type-specs">
+                        <div class="type-spec"><span class="type-spec-label">Font</span><span class="type-spec-value">JetBrains Mono</span></div>
+                        <div class="type-spec"><span class="type-spec-label">Size</span><span class="type-spec-value">22px / 15px</span></div>
+                        <div class="type-spec"><span class="type-spec-label">Weight</span><span class="type-spec-value">600</span></div>
+                        <div class="type-spec"><span class="type-spec-label">Color</span><span class="type-spec-value">#1e90ff</span></div>
+                        <div class="type-spec"><span class="type-spec-label">Class</span><span class="type-spec-value">.br-tagline</span></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Component Examples -->
+        <section class="section">
+            <h2 class="section-title">Card Variants</h2>
+            <p class="section-desc">Different card styles for different use cases. All share the same color foundation.</p>
+
+            <div class="component-grid">
+                <!-- Standard Card -->
+                <div class="component-box">
+                    <div class="component-label">Standard Card (Dashboard)</div>
+                    <div class="example-card">
+                        <div class="example-title">New York</div>
+                        <div class="example-value">72°F</div>
+                        <div class="example-stat-grid">
+                            <div><span class="example-stat-label">Status</span><span class="example-stat-value" style="color: #10b981;">Active</span></div>
+                            <div><span class="example-stat-label">Updated</span><span class="example-stat-value">2m ago</span></div>
+                        </div>
+                    </div>
+                    <div style="margin-top: 12px; font-size: 11px; color: var(--br-text-secondary);">
+                        Class: <code style="color: var(--br-accent-cyan);">.br-card</code>
+                    </div>
+                </div>
+
+                <!-- Link Card -->
+                <div class="component-box">
+                    <div class="component-label">Link Card (News/Drudge)</div>
+                    <div class="example-link-card">
+                        <div class="example-link-source">Reuters</div>
+                        <div class="example-link-headline">Major Development in Tech Sector Shakes Markets</div>
+                        <div class="example-link-meta">
+                            <span>5m ago</span>
+                            <span class="example-link-category">Tech</span>
+                        </div>
+                    </div>
+                    <div style="margin-top: 12px; font-size: 11px; color: var(--br-text-secondary);">
+                        Class: <code style="color: var(--br-accent-cyan);">.br-link-card</code>
+                    </div>
+                </div>
+
+                <!-- Metric Card -->
+                <div class="component-box">
+                    <div class="component-label">Metric Card (KPI)</div>
+                    <div class="example-metric">
+                        <div class="example-metric-label">Total Users</div>
+                        <div class="example-metric-value">12,847</div>
+                        <div class="example-metric-change positive">+12.5%</div>
+                    </div>
+                    <div style="margin-top: 12px; font-size: 11px; color: var(--br-text-secondary);">
+                        Class: <code style="color: var(--br-accent-cyan);">.br-metric-card</code>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- CSS Variables -->
+        <section class="section">
+            <h2 class="section-title">CSS Variables</h2>
+            <p class="section-desc">Copy this block into your stylesheet for consistent theming.</p>
+
+            <div class="code-block"><span class="code-comment">/* Binary Rogue Design System */</span>
+:root {
+    <span class="code-comment">/* Backgrounds */</span>
+    <span class="code-property">--br-bg-deep:</span> <span class="code-value">#0a0a0a</span>;
+    <span class="code-property">--br-bg-darker:</span> <span class="code-value">#0d1117</span>;
+    <span class="code-property">--br-bg-card:</span> <span class="code-value">#1a1f2e</span>;
+
+    <span class="code-comment">/* Structure */</span>
+    <span class="code-property">--br-border:</span> <span class="code-value">#2d333b</span>;
+    <span class="code-property">--br-separator:</span> <span class="code-value">#4b5563</span>;
+
+    <span class="code-comment">/* Text */</span>
+    <span class="code-property">--br-text-white:</span> <span class="code-value">#ffffff</span>;
+    <span class="code-property">--br-text-primary:</span> <span class="code-value">#fafafa</span>;
+    <span class="code-property">--br-text-muted:</span> <span class="code-value">#94a3b8</span>;
+    <span class="code-property">--br-text-secondary:</span> <span class="code-value">#6b7280</span>;
+
+    <span class="code-comment">/* Brand */</span>
+    <span class="code-property">--br-accent-cyan-green:</span> <span class="code-value">#00ffc8</span>;
+    <span class="code-property">--br-accent-cyan:</span> <span class="code-value">#00d9ff</span>;
+    <span class="code-property">--br-accent-purple:</span> <span class="code-value">#a78bfa</span>;
+    <span class="code-property">--br-accent-blue:</span> <span class="code-value">#1e90ff</span>;
+
+    <span class="code-comment">/* Status */</span>
+    <span class="code-property">--br-status-info:</span> <span class="code-value">#06b6d4</span>;
+    <span class="code-property">--br-status-success:</span> <span class="code-value">#10b981</span>;
+    <span class="code-property">--br-status-warning:</span> <span class="code-value">#f59e0b</span>;
+    <span class="code-property">--br-status-alert:</span> <span class="code-value">#f97316</span>;
+    <span class="code-property">--br-status-error:</span> <span class="code-value">#ef4444</span>;
+}</div>
+        </section>
+
+        <!-- Files -->
+        <section class="section">
+            <h2 class="section-title">Template Files</h2>
+            <p class="section-desc">Files included in this design system.</p>
+
+            <div class="component-box">
+                <div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 2;">
+                    <div><span style="color: var(--br-accent-cyan);">docs/</span></div>
+                    <div style="padding-left: 20px;"><span style="color: var(--br-accent-purple);">BINARY_ROGUE_DESIGN_TEMPLATE.md</span> - Full documentation</div>
+                    <div style="padding-left: 20px;"><span style="color: var(--br-accent-purple);">BINARY_ROGUE_DESIGN_TEMPLATE.html</span> - This visual guide</div>
+                    <div style="padding-left: 20px;"><span style="color: var(--br-accent-purple);">binary-rogue.css</span> - Complete CSS framework</div>
+                    <div style="padding-left: 20px;"><span style="color: var(--br-accent-cyan);">templates/</span></div>
+                    <div style="padding-left: 40px;"><span style="color: var(--br-accent-cyan-green);">binary-rogue-boilerplate.html</span> - Starter HTML</div>
+                    <div style="padding-left: 40px;"><span style="color: var(--br-accent-cyan-green);">clock.js</span> - Live clock script</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="doc-footer">
+            <div class="footer-brand">Binary Rogue</div>
+            <div class="footer-tagline">"Glitch The System. Burn The Map."</div>
+        </footer>
+
+    </div>
+</body>
+</html>
