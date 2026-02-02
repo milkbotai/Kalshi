@@ -121,9 +121,10 @@ class TradingLoop:
         if kalshi_client:
             self.kalshi_client = kalshi_client
         elif self.trading_mode != TradingMode.SHADOW:
+            # Use RSA key authentication (preferred) or fall back to legacy
             self.kalshi_client = KalshiClient(
-                api_key=settings.kalshi_api_key or "",
-                api_secret=settings.kalshi_api_secret or "",
+                api_key_id=settings.kalshi_api_key_id,
+                private_key_path=settings.kalshi_private_key_path,
                 base_url=settings.kalshi_api_url,
             )
         else:
