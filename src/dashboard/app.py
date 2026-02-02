@@ -531,15 +531,14 @@ def render_performance_tab(data_provider: DashboardDataProvider) -> None:
     render_equity_chart(equity_data)
     
     st.markdown("<div style='height:20px;'></div>", unsafe_allow_html=True)
-    
-    # City Performance Matrix
-    st.markdown('<h3 style="font-size:20px;font-weight:600;color:#fafafa;margin:0 0 10px 0;">City Performance Matrix</h3>', unsafe_allow_html=True)
+
+    # City Performance Matrix (chart has its own title)
     render_performance_heatmap(city_metrics)
-    
+
     st.markdown("<div style='height:20px;'></div>", unsafe_allow_html=True)
-    
-    # Detailed Table (always visible)
-    st.markdown('<h3 style="font-size:20px;font-weight:600;color:#fafafa;margin:0 0 10px 0;">Detailed City Performance</h3>', unsafe_allow_html=True)
+
+    # Detailed Table
+    st.markdown('<h3 style="font-size:20px;font-weight:600;color:#fafafa;margin:0 0 10px 0;">City Breakdown</h3>', unsafe_allow_html=True)
     render_city_performance_table(city_metrics)
 
 
