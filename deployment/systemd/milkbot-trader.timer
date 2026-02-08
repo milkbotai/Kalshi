@@ -1,6 +1,6 @@
 [Unit]
 Description=Milkbot Trading Engine Timer
-Documentation=https://github.com/milkbot/kalshi
+Documentation=https://github.com/milkbotai/Kalshi
 
 [Timer]
 # Run every 5 minutes during market hours (6 AM - 11 PM ET)

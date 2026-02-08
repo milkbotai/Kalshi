@@ -1,6 +1,6 @@
 [Unit]
 Description=Milkbot Public Dashboard (Streamlit)
-Documentation=https://github.com/milkbot/kalshi
+Documentation=https://github.com/milkbotai/Kalshi
 After=network.target milkbot-analytics.service
 Wants=milkbot-analytics.service
 

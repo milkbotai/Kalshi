@@ -1,6 +1,6 @@
 [Unit]
 Description=Milkbot Analytics Rollup Timer
-Documentation=https://github.com/milkbot/kalshi
+Documentation=https://github.com/milkbotai/Kalshi
 
 [Timer]
 # Run daily at 1 AM ET (after market close)

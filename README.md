@@ -60,15 +60,15 @@ Only when all five models align do we pull the trigger.
 - Scatter plot visualization: Win Rate vs. Profitability
 
 ### Automated Risk Management
-Scaled for a **$1,500 bankroll** with proportional limits:
+Scaled for a **$992.10 bankroll** with proportional limits:
 
 | Risk Parameter | Limit | Dollar Value |
 |----------------|-------|--------------|
-| Max per trade | 2% | $30 |
-| Max city exposure | 3% | $45 |
-| Max cluster exposure | 5% | $75 |
-| Max daily loss | 5% | $75 |
-| Max position size | 300 contracts | — |
+| Max per trade | 2% | $19.84 |
+| Max city exposure | 3% | $29.76 |
+| Max cluster exposure | 5% | $49.61 |
+| Max daily loss | 5% | $49.61 |
+| Max position size | 200 contracts | — |
 
 Circuit breakers auto-pause trading on:
 - Daily loss limit breach
@@ -169,8 +169,8 @@ Key environment variables in `.env`:
 # Trading Mode
 TRADING_MODE=demo  # shadow | demo | live
 
-# Risk Limits (scaled for $1500 bankroll)
-BANKROLL=1500
+# Risk Limits (scaled for $992.10 bankroll)
+BANKROLL=992.10
 MAX_TRADE_RISK_PCT=0.02
 MAX_CITY_EXPOSURE_PCT=0.03
 MAX_DAILY_LOSS_PCT=0.05

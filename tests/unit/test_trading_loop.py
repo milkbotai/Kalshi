@@ -24,6 +24,18 @@ from src.trader.trading_loop import (
 )
 
 
+def _make_settings_mock(**overrides: object) -> MagicMock:
+    """Create a settings mock with numeric risk parameters pre-configured."""
+    s = MagicMock()
+    s.bankroll = 992.10
+    s.max_city_exposure_pct = 0.03
+    s.max_trade_risk_pct = 0.02
+    s.max_daily_loss_pct = 0.05
+    for k, v in overrides.items():
+        setattr(s, k, v)
+    return s
+
+
 class TestDailyHighTempStrategyEdgeCases:
     """Tests for DailyHighTempStrategy edge cases."""
 
@@ -268,7 +280,7 @@ class TestTradingLoop:
         mock_weather_cache: MagicMock,
     ) -> None:
         """Test trading loop initializes in shadow mode."""
-        settings = MagicMock()
+        settings = _make_settings_mock()
         settings.trading_mode = TradingMode.SHADOW
         settings.kalshi_api_key = None
         settings.kalshi_private_key_path = None
@@ -293,7 +305,7 @@ class TestTradingLoop:
         mock_city_loader: MagicMock,
     ) -> None:
         """Test running cycle in shadow mode (no API calls)."""
-        settings = MagicMock()
+        settings = _make_settings_mock()
         settings.trading_mode = TradingMode.SHADOW
         mock_settings.return_value = settings
         mock_loader.get_city.return_value = mock_city_loader
@@ -322,7 +334,7 @@ class TestTradingLoop:
         mock_city_loader: MagicMock,
     ) -> None:
         """Test running cycle with market evaluation."""
-        settings = MagicMock()
+        settings = _make_settings_mock()
         settings.trading_mode = TradingMode.DEMO
         settings.kalshi_api_key = "test_key"
 
@@ -352,7 +364,7 @@ class TestTradingLoop:
         mock_weather_cache: MagicMock,
     ) -> None:
         """Test cycle is skipped when circuit breaker is paused."""
-        settings = MagicMock()
+        settings = _make_settings_mock()
         settings.trading_mode = TradingMode.SHADOW
         mock_settings.return_value = settings
 
@@ -380,7 +392,7 @@ class TestTradingLoop:
         mock_loader: MagicMock,
     ) -> None:
         """Test cycle handles weather fetch errors gracefully."""
-        settings = MagicMock()
+        settings = _make_settings_mock()
         settings.trading_mode = TradingMode.SHADOW
         mock_settings.return_value = settings
         mock_loader.get_city.side_effect = KeyError("City not found")
@@ -407,7 +419,7 @@ class TestTradingLoop:
         mock_city_loader: MagicMock,
     ) -> None:
         """Test cycle logs warning for stale weather data."""
-        settings = MagicMock()
+        settings = _make_settings_mock()
         settings.trading_mode = TradingMode.SHADOW
         mock_settings.return_value = settings
         mock_loader.get_city.return_value = mock_city_loader
@@ -439,7 +451,7 @@ class TestTradingLoop:
         mock_city_loader: MagicMock,
     ) -> None:
         """Test cycle handles market fetch errors gracefully."""
-        settings = MagicMock()
+        settings = _make_settings_mock()
         settings.trading_mode = TradingMode.DEMO
         mock_settings.return_value = settings
         mock_loader.get_city.return_value = mock_city_loader
@@ -467,7 +479,7 @@ class TestTradingLoop:
         mock_city_loader: MagicMock,
     ) -> None:
         """Test weather data extraction from forecast."""
-        settings = MagicMock()
+        settings = _make_settings_mock()
         settings.trading_mode = TradingMode.SHADOW
         mock_settings.return_value = settings
 
@@ -499,7 +511,7 @@ class TestTradingLoop:
         mock_city_loader: MagicMock,
     ) -> None:
         """Test order submission in DEMO mode calls Kalshi API."""
-        settings = MagicMock()
+        settings = _make_settings_mock()
         settings.trading_mode = TradingMode.DEMO
         settings.kalshi_api_key = "test"
 
@@ -541,7 +553,7 @@ class TestTradingLoop:
         mock_city_loader: MagicMock,
     ) -> None:
         """Test SHADOW mode simulates order fills without API calls."""
-        settings = MagicMock()
+        settings = _make_settings_mock()
         settings.trading_mode = TradingMode.SHADOW
         mock_settings.return_value = settings
         mock_loader.get_city.return_value = mock_city_loader
@@ -596,7 +608,7 @@ class TestTradingLoopRiskChecks:
         mock_loader: MagicMock,
     ) -> None:
         """Test trade is blocked when exceeding trade size limit."""
-        settings = MagicMock()
+        settings = _make_settings_mock()
         settings.trading_mode = TradingMode.SHADOW
         mock_settings.return_value = settings
 
@@ -646,7 +658,7 @@ class TestTradingLoopErrorHandling:
         mock_city_loader: MagicMock,
     ) -> None:
         """Test that order submission exceptions are caught and logged."""
-        settings = MagicMock()
+        settings = _make_settings_mock()
         settings.trading_mode = TradingMode.DEMO
         settings.kalshi_api_key = "test"
 
@@ -713,7 +725,7 @@ class TestTradingLoopErrorHandling:
         mock_city_loader: MagicMock,
     ) -> None:
         """Test that strategy evaluation exceptions are caught."""
-        settings = MagicMock()
+        settings = _make_settings_mock()
         settings.trading_mode = TradingMode.DEMO
         settings.kalshi_api_key = "test"
 
@@ -765,7 +777,7 @@ class TestTradingLoopErrorHandling:
         mock_city_loader: MagicMock,
     ) -> None:
         """Test handling of OMS update failures."""
-        settings = MagicMock()
+        settings = _make_settings_mock()
         settings.trading_mode = TradingMode.DEMO
         settings.kalshi_api_key = "test"
 
@@ -833,7 +845,7 @@ class TestTradingLoopErrorHandling:
         mock_loader: MagicMock,
     ) -> None:
         """Test _build_weather_data handles missing periods gracefully."""
-        settings = MagicMock()
+        settings = _make_settings_mock()
         settings.trading_mode = TradingMode.SHADOW
         mock_settings.return_value = settings
 
@@ -857,7 +869,7 @@ class TestTradingLoopErrorHandling:
         mock_loader: MagicMock,
     ) -> None:
         """Test _build_weather_data handles nighttime-only periods."""
-        settings = MagicMock()
+        settings = _make_settings_mock()
         settings.trading_mode = TradingMode.SHADOW
         mock_settings.return_value = settings
 
@@ -886,7 +898,7 @@ class TestTradingLoopErrorHandling:
         mock_loader: MagicMock,
     ) -> None:
         """Test _submit_order handles None max_price."""
-        settings = MagicMock()
+        settings = _make_settings_mock()
         settings.trading_mode = TradingMode.SHADOW
         mock_settings.return_value = settings
 
@@ -944,7 +956,7 @@ class TestTradingLoopOrderSubmissionEdgeCases:
         mock_city_loader: MagicMock,
     ) -> None:
         """Test order submission in LIVE mode without confirmation."""
-        settings = MagicMock()
+        settings = _make_settings_mock()
         settings.trading_mode = TradingMode.LIVE
         settings.kalshi_api_key_id = "live_key"
         settings.kalshi_private_key_path = "/path/to/key.pem"
@@ -1007,7 +1019,7 @@ class TestTradingLoopOrderSubmissionEdgeCases:
         mock_city_loader: MagicMock,
     ) -> None:
         """Test handling when Kalshi returns response without order_id."""
-        settings = MagicMock()
+        settings = _make_settings_mock()
         settings.trading_mode = TradingMode.DEMO
         settings.kalshi_api_key = "test"
 
@@ -1498,7 +1510,7 @@ class TestTradingLoopEdgeCases:
         mock_city_loader: MagicMock,
     ) -> None:
         """Test run_cycle handles forecast with no daytime periods."""
-        settings = MagicMock()
+        settings = _make_settings_mock()
         settings.trading_mode = TradingMode.SHADOW
         mock_settings.return_value = settings
         mock_loader.get_city.return_value = mock_city_loader
@@ -1528,7 +1540,7 @@ class TestTradingLoopEdgeCases:
         mock_city_loader: MagicMock,
     ) -> None:
         """Test run_cycle handles empty forecast periods array."""
-        settings = MagicMock()
+        settings = _make_settings_mock()
         settings.trading_mode = TradingMode.SHADOW
         mock_settings.return_value = settings
         mock_loader.get_city.return_value = mock_city_loader
@@ -1557,7 +1569,7 @@ class TestTradingLoopEdgeCases:
         mock_city_loader: MagicMock,
     ) -> None:
         """Test run_cycle handles null forecast."""
-        settings = MagicMock()
+        settings = _make_settings_mock()
         settings.trading_mode = TradingMode.SHADOW
         mock_settings.return_value = settings
         mock_loader.get_city.return_value = mock_city_loader
@@ -1586,7 +1598,7 @@ class TestTradingLoopEdgeCases:
         mock_city_loader: MagicMock,
     ) -> None:
         """Test _submit_order defaults to 'yes' side when signal.side is None."""
-        settings = MagicMock()
+        settings = _make_settings_mock()
         settings.trading_mode = TradingMode.DEMO
         settings.kalshi_api_key = "test"
 
@@ -1653,7 +1665,7 @@ class TestOrderSubmissionExceptions:
         """Test handling of network failure during order submission."""
         import requests
 
-        settings = MagicMock()
+        settings = _make_settings_mock()
         settings.trading_mode = TradingMode.DEMO
         settings.kalshi_api_key = "test"
 
@@ -1719,7 +1731,7 @@ class TestOrderSubmissionExceptions:
         """Test handling of API timeout during order placement."""
         import requests
 
-        settings = MagicMock()
+        settings = _make_settings_mock()
         settings.trading_mode = TradingMode.DEMO
         settings.kalshi_api_key = "test"
 
@@ -1782,7 +1794,7 @@ class TestOrderSubmissionExceptions:
         mock_city_loader: MagicMock,
     ) -> None:
         """Test handling of malformed order response."""
-        settings = MagicMock()
+        settings = _make_settings_mock()
         settings.trading_mode = TradingMode.DEMO
         settings.kalshi_api_key = "test"
 
@@ -1848,7 +1860,7 @@ class TestOrderSubmissionExceptions:
         """Test that circuit breaker tracks order rejections."""
         import requests
 
-        settings = MagicMock()
+        settings = _make_settings_mock()
         settings.trading_mode = TradingMode.DEMO
         settings.kalshi_api_key = "test"
 
@@ -1920,7 +1932,7 @@ class TestTradingModeEnforcement:
         mock_city_loader: MagicMock,
     ) -> None:
         """Test SHADOW mode never calls Kalshi order API."""
-        settings = MagicMock()
+        settings = _make_settings_mock()
         settings.trading_mode = TradingMode.SHADOW
         mock_settings.return_value = settings
         mock_loader.get_city.return_value = mock_city_loader
@@ -1948,7 +1960,7 @@ class TestTradingModeEnforcement:
         mock_city_loader: MagicMock,
     ) -> None:
         """Test DEMO mode uses Kalshi API."""
-        settings = MagicMock()
+        settings = _make_settings_mock()
         settings.trading_mode = TradingMode.DEMO
         settings.kalshi_api_key = "demo_key"
 
@@ -2010,7 +2022,7 @@ class TestTradingModeEnforcement:
         mock_city_loader: MagicMock,
     ) -> None:
         """Test LIVE mode requires explicit confirmation before trading."""
-        settings = MagicMock()
+        settings = _make_settings_mock()
         settings.trading_mode = TradingMode.LIVE
         settings.kalshi_api_key_id = "live_key"
         settings.kalshi_private_key_path = "/path/to/key.pem"
@@ -2077,7 +2089,7 @@ class TestTradingModeEnforcement:
         mock_loader: MagicMock,
     ) -> None:
         """Test LIVE mode raises error without credentials."""
-        settings = MagicMock()
+        settings = _make_settings_mock()
         settings.trading_mode = TradingMode.LIVE
         settings.kalshi_api_key_id = None  # Missing
         settings.kalshi_private_key_path = None  # Missing
@@ -2096,7 +2108,7 @@ class TestTradingModeEnforcement:
         mock_city_loader: MagicMock,
     ) -> None:
         """Test trading mode is logged in order records."""
-        settings = MagicMock()
+        settings = _make_settings_mock()
         settings.trading_mode = TradingMode.SHADOW
         mock_settings.return_value = settings
         mock_loader.get_city.return_value = mock_city_loader
@@ -2144,7 +2156,7 @@ class TestTradingLoopValidation:
         mock_loader: MagicMock,
     ) -> None:
         """Test DEMO mode with production URL logs warning."""
-        settings = MagicMock()
+        settings = _make_settings_mock()
         settings.trading_mode = TradingMode.DEMO
         settings.kalshi_api_key = "test_key"
 
@@ -2163,7 +2175,7 @@ class TestTradingLoopValidation:
         mock_loader: MagicMock,
     ) -> None:
         """Test LIVE mode with demo URL raises ValueError."""
-        settings = MagicMock()
+        settings = _make_settings_mock()
         settings.trading_mode = TradingMode.LIVE
         settings.kalshi_api_key_id = "live_key"
         settings.kalshi_private_key_path = "/path/to/key.pem"
@@ -2181,7 +2193,7 @@ class TestTradingLoopValidation:
         mock_loader: MagicMock,
     ) -> None:
         """Test confirm_live_mode returns False when not in LIVE mode."""
-        settings = MagicMock()
+        settings = _make_settings_mock()
         settings.trading_mode = TradingMode.SHADOW
         mock_settings.return_value = settings
 
@@ -2199,7 +2211,7 @@ class TestTradingLoopValidation:
         mock_loader: MagicMock,
     ) -> None:
         """Test confirm_live_mode raises error without Kalshi client."""
-        settings = MagicMock()
+        settings = _make_settings_mock()
         settings.trading_mode = TradingMode.LIVE
         settings.kalshi_api_key_id = "key"
         settings.kalshi_private_key_path = "/path/to/key.pem"

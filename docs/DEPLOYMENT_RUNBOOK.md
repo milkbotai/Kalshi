@@ -145,7 +145,7 @@ sudo -u milkbot bash
 cd /opt/milkbot
 
 # Clone repository (or copy from secure location)
-git clone https://github.com/milkbot/kalshi.git .
+git clone https://github.com/milkbotai/Kalshi.git .
 
 # Or if deploying from tarball
 # tar -xzf milkbot-v1.0.0.tar.gz -C /opt/milkbot

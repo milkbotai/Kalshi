@@ -323,7 +323,7 @@ def render_stats_strip(data_provider: DashboardDataProvider) -> None:
     equity_data = data_provider.get_equity_curve()
     city_metrics = data_provider.get_city_metrics()
     
-    starting_bankroll = int(os.environ.get("BANKROLL", "1500"))
+    starting_bankroll = int(float(os.environ.get("BANKROLL", "992.10")))
     if equity_data:
         current_equity = equity_data[-1].get("ending_equity", starting_bankroll)
         daily_pnl = equity_data[-1].get("daily_pnl", 0)
@@ -457,7 +457,7 @@ def render_performance_tab(data_provider: DashboardDataProvider) -> None:
     start_date = end_date - timedelta(days=30)
     equity_data = data_provider.get_equity_curve(start_date, end_date)
     
-    starting_bankroll = int(os.environ.get("BANKROLL", "1500"))
+    starting_bankroll = int(float(os.environ.get("BANKROLL", "992.10")))
     if equity_data:
         start_equity = equity_data[0].get("ending_equity", starting_bankroll) - equity_data[0].get("daily_pnl", 0)
         end_equity = equity_data[-1].get("ending_equity", starting_bankroll)

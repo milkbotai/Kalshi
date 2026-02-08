@@ -48,7 +48,7 @@ MilkBot doesn't predict the weather. It predicts the prediction.
 | Project | Role | Repo | Status |
 |---------|------|------|--------|
 | **OpenClaw** | Autonomous coding agent | [claw-install](https://github.com/milkbotai/claw-install) | Deployed |
-| **Kalshi Climate Exchange** | Autonomous trading agent | [Kalshi](https://github.com/milkbotai/Kalshi) | Live — $1,500 bankroll |
+| **Kalshi Climate Exchange** | Autonomous trading agent | [Kalshi](https://github.com/milkbotai/Kalshi) | Live — $992.10 bankroll |
 
 ## Performance Standards
 

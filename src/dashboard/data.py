@@ -368,8 +368,8 @@ class DashboardDataProvider:
         balance_data = self._fetch_kalshi_balance()
         fills = self._fetch_kalshi_fills()
 
-        # Starting bankroll from env (default $5000 = 500000 cents)
-        starting_bankroll_cents = int(os.environ.get("BANKROLL", "5000")) * 100
+        # Starting bankroll from env (default $992 = 99200 cents)
+        starting_bankroll_cents = int(float(os.environ.get("BANKROLL", "992.10"))) * 100
 
         # Current portfolio value from Kalshi (in cents)
         current_balance_cents = balance_data.get("balance", 0)

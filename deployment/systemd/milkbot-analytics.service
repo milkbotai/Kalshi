@@ -1,6 +1,6 @@
 [Unit]
 Description=Milkbot Analytics Service
-Documentation=https://github.com/milkbot/kalshi
+Documentation=https://github.com/milkbotai/Kalshi
 After=network.target postgresql.service
 Wants=postgresql.service
 

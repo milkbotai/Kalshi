@@ -104,8 +104,14 @@ class TradingLoop:
         self.trading_mode = trading_mode or settings.trading_mode
         self.weather_cache = weather_cache or get_weather_cache()
         self.oms = oms or OrderManagementSystem()
-        self.risk_calculator = risk_calculator or RiskCalculator()
-        self.circuit_breaker = circuit_breaker or CircuitBreaker()
+        self.risk_calculator = risk_calculator or RiskCalculator(
+            max_city_exposure_pct=settings.max_city_exposure_pct,
+            max_trade_risk_pct=settings.max_trade_risk_pct,
+            bankroll=settings.bankroll,
+        )
+        self.circuit_breaker = circuit_breaker or CircuitBreaker(
+            max_daily_loss=settings.bankroll * settings.max_daily_loss_pct,
+        )
         self.strategy = strategy or DailyHighTempStrategy()
 
         # Repository integration (optional - enables persistence)
@@ -228,6 +234,7 @@ class TradingLoop:
         signals_generated = 0
         gates_passed = 0
         orders_submitted = 0
+        cycle_positions: list[dict[str, Any]] = []
 
         logger.info(
             "trading_cycle_started",
@@ -388,7 +395,7 @@ class TradingLoop:
                 continue
 
             if not self.risk_calculator.check_city_exposure(
-                city_code, trade_risk, []
+                city_code, trade_risk, cycle_positions
             ):
                 logger.info("trade_blocked_city_exposure", ticker=market.ticker)
                 continue
@@ -398,6 +405,11 @@ class TradingLoop:
                 order = self._submit_order(signal, city_config, market, quantity)
                 if order:
                     orders_submitted += 1
+                    cycle_positions.append({
+                        "city_code": city_code,
+                        "quantity": quantity,
+                        "entry_price": signal.max_price or 50,
+                    })
             except Exception as e:
                 errors.append(f"Order submission failed for {market.ticker}: {e}")
                 logger.error(
@@ -1007,6 +1019,23 @@ class MultiCityOrchestrator:
             order.get("quantity", 0) * order.get("limit_price", 0) / 100.0
             for order in all_open_orders
         )
+
+        # Check daily loss limit via circuit breaker
+        realized_pnl = sum(
+            order.get("realized_pnl", 0.0) for order in all_open_orders
+        )
+        unrealized_pnl = sum(
+            order.get("unrealized_pnl", 0.0) for order in all_open_orders
+        )
+        if not self.trading_loop.circuit_breaker.check_daily_loss_limit(
+            realized_pnl, unrealized_pnl
+        ):
+            logger.critical(
+                "aggregate_risk_daily_loss_limit_breached",
+                realized_pnl=realized_pnl,
+                unrealized_pnl=unrealized_pnl,
+            )
+            return False
 
         # Check against circuit breaker
         if self.trading_loop.circuit_breaker.is_paused:
