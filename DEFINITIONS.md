@@ -109,7 +109,7 @@ Default for development: `DEMO` or `SHADOW` only.
 - Liquidity ≥ configured minimum
 - Minimum edge (after costs) ≥ configured minimum
 
-### Risk policy (defaults for $5,000 demo bankroll)
+### Risk policy (design-time defaults for $5,000 demo bankroll; live values in Settings)
 - Max open risk: **$500** (10%)
 - Max daily loss: **$250** (5%) → pause 24h
 - Max per trade risk: **$100** (2%)

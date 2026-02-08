@@ -1,7 +1,9 @@
 # Risk Policy (Enterprise Defaults)
 
+> **Note:** This is the original design spec. Live values are now managed via `src/shared/config/settings.py` and `.env`. Current live bankroll: $992.10.
+
 ## 1. Bankroll
-- Demo bankroll: **$5,000**
+- Demo bankroll: **$5,000** *(design-time default; superseded by Settings)*
 
 ## 2. Risk limits (defaults; tune during demo)
 ### 2.1 Portfolio caps

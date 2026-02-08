@@ -24,6 +24,7 @@ if TYPE_CHECKING:
     from src.shared.db.connection import DatabaseManager
     from src.shared.db.repositories import (
         MarketRepository,
+        OrderRepository,
         SignalRepository,
         WeatherRepository,
     )
@@ -83,6 +84,7 @@ class TradingLoop:
         weather_repo: "WeatherRepository | None" = None,
         market_repo: "MarketRepository | None" = None,
         signal_repo: "SignalRepository | None" = None,
+        order_repo: "OrderRepository | None" = None,
     ) -> None:
         """Initialize trading loop.
 
@@ -98,12 +100,13 @@ class TradingLoop:
             weather_repo: Weather repository for persistence (optional)
             market_repo: Market repository for persistence (optional)
             signal_repo: Signal repository for persistence (optional)
+            order_repo: Order repository for OMS persistence (optional)
         """
         settings = get_settings()
 
         self.trading_mode = trading_mode or settings.trading_mode
         self.weather_cache = weather_cache or get_weather_cache()
-        self.oms = oms or OrderManagementSystem()
+        self.oms = oms or OrderManagementSystem(order_repo=order_repo)
         self.risk_calculator = risk_calculator or RiskCalculator(
             max_city_exposure_pct=settings.max_city_exposure_pct,
             max_trade_risk_pct=settings.max_trade_risk_pct,
@@ -119,6 +122,13 @@ class TradingLoop:
         self.weather_repo = weather_repo
         self.market_repo = market_repo
         self.signal_repo = signal_repo
+        self.order_repo = order_repo
+
+        # Recover open orders from database on startup
+        if order_repo:
+            loaded = self.oms.load_open_orders()
+            if loaded:
+                logger.info("oms_recovered_orders", count=loaded)
 
         # Track if LIVE mode was explicitly confirmed
         self._live_mode_confirmed = False

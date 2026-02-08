@@ -1,14 +1,20 @@
 """Order Management System (OMS) for trade execution.
 
 Manages order lifecycle with idempotency, state machine, and duplicate prevention.
+Optionally persists to PostgreSQL via OrderRepository for crash recovery.
 """
+
+from __future__ import annotations
 
 import hashlib
 from datetime import datetime, timezone
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from src.shared.config.logging import get_logger
 from src.trader.strategy import Signal
+
+if TYPE_CHECKING:
+    from src.shared.db.repositories.order import OrderCreate, OrderRepository
 
 logger = get_logger(__name__)
 
@@ -55,10 +61,16 @@ class OrderManagementSystem:
     and duplicate prevention using intent keys.
     """
 
-    def __init__(self) -> None:
-        """Initialize OMS."""
+    def __init__(self, order_repo: OrderRepository | None = None) -> None:
+        """Initialize OMS.
+
+        Args:
+            order_repo: Optional OrderRepository for PostgreSQL persistence.
+                When provided, orders are durably stored and can survive restarts.
+        """
         self._orders: dict[str, dict[str, Any]] = {}  # intent_key -> order
-        logger.info("oms_initialized")
+        self._order_repo = order_repo
+        logger.info("oms_initialized", persistent=order_repo is not None)
 
     def generate_intent_key(
         self,
@@ -174,8 +186,11 @@ class OrderManagementSystem:
             "signal_edge": signal.edge,
         }
 
-        # Store order
+        # Store order in memory
         self._orders[intent_key] = order
+
+        # Persist to database if repo available
+        self._persist_new_order(order)
 
         logger.info(
             "order_created",
@@ -238,6 +253,9 @@ class OrderManagementSystem:
             order["filled_at"] = datetime.now(timezone.utc)
         elif status == OrderState.CANCELLED and order["cancelled_at"] is None:
             order["cancelled_at"] = datetime.now(timezone.utc)
+
+        # Persist status change to database
+        self._persist_status_update(intent_key, status, kalshi_order_id, status_message)
 
         logger.info(
             "order_status_updated",
@@ -367,6 +385,9 @@ class OrderManagementSystem:
                 matched_count += 1
                 updated_orders.append(intent_key)
 
+                # Persist fill to database
+                self._persist_fill(intent_key, filled_qty, fill_price)
+
                 logger.info(
                     "fill_matched",
                     intent_key=intent_key,
@@ -405,3 +426,96 @@ class OrderManagementSystem:
         )
 
         return summary
+
+    # ── Persistence helpers ──────────────────────────────────────────
+
+    def load_open_orders(self) -> int:
+        """Load open orders from database into in-memory cache.
+
+        Call on startup to recover state after a crash or restart.
+
+        Returns:
+            Number of orders loaded
+        """
+        if not self._order_repo:
+            return 0
+
+        try:
+            open_orders = self._order_repo.get_open_orders()
+            for db_order in open_orders:
+                self._orders[db_order.intent_key] = {
+                    "intent_key": db_order.intent_key,
+                    "order_id": db_order.kalshi_order_id,
+                    "ticker": db_order.ticker,
+                    "city_code": db_order.city_code,
+                    "market_id": db_order.market_id,
+                    "event_date": db_order.event_date,
+                    "side": db_order.side,
+                    "action": db_order.action,
+                    "quantity": db_order.quantity,
+                    "limit_price": db_order.limit_price,
+                    "status": db_order.status,
+                    "created_at": db_order.created_at,
+                    "submitted_at": db_order.submitted_at,
+                    "filled_at": db_order.filled_at,
+                    "cancelled_at": db_order.cancelled_at,
+                    "filled_quantity": db_order.filled_quantity,
+                    "remaining_quantity": db_order.remaining_quantity,
+                    "average_fill_price": db_order.average_fill_price,
+                    "kalshi_order_id": db_order.kalshi_order_id,
+                    "signal_p_yes": db_order.signal_p_yes,
+                    "signal_edge": db_order.signal_edge,
+                }
+            logger.info("open_orders_loaded", count=len(open_orders))
+            return len(open_orders)
+        except Exception as e:
+            logger.warning("load_open_orders_failed", error=str(e))
+            return 0
+
+    def _persist_new_order(self, order: dict[str, Any]) -> None:
+        """Persist a new order to the database."""
+        if not self._order_repo:
+            return
+        try:
+            from src.shared.db.repositories.order import OrderCreate
+
+            data = OrderCreate(
+                intent_key=order["intent_key"],
+                ticker=order["ticker"],
+                city_code=order["city_code"],
+                market_id=order.get("market_id"),
+                event_date=order.get("event_date"),
+                side=order["side"],
+                action=order["action"],
+                quantity=order["quantity"],
+                limit_price=order["limit_price"],
+                signal_p_yes=order.get("signal_p_yes"),
+                signal_edge=order.get("signal_edge"),
+            )
+            self._order_repo.create_order_idempotent(data)
+        except Exception as e:
+            logger.warning("persist_new_order_failed", intent_key=order["intent_key"], error=str(e))
+
+    def _persist_status_update(
+        self,
+        intent_key: str,
+        status: str,
+        kalshi_order_id: str | None = None,
+        status_message: str | None = None,
+    ) -> None:
+        """Persist a status update to the database."""
+        if not self._order_repo:
+            return
+        try:
+            self._order_repo.update_status(intent_key, status, kalshi_order_id, status_message)
+        except Exception as e:
+            logger.warning("persist_status_update_failed", intent_key=intent_key, error=str(e))
+
+    def _persist_fill(self, intent_key: str, fill_quantity: int, fill_price: float) -> None:
+        """Persist a fill to the database."""
+        if not self._order_repo:
+            return
+        try:
+            self._order_repo.record_fill(intent_key, fill_quantity, fill_price)
+        except Exception as e:
+            logger.warning("persist_fill_failed", intent_key=intent_key, error=str(e))

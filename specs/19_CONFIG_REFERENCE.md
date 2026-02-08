@@ -1,5 +1,7 @@
 # Configuration Reference
 
+> **Note:** This is the original design spec. Live configuration is managed via `.env` and `src/shared/config/settings.py`. Values below are design-time defaults.
+
 ## 1. Environment separation
 - dev
 - demo
