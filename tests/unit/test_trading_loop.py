@@ -271,7 +271,7 @@ class TestTradingLoop:
         settings = MagicMock()
         settings.trading_mode = TradingMode.SHADOW
         settings.kalshi_api_key = None
-        settings.kalshi_api_secret = None
+        settings.kalshi_private_key_path = None
         mock_settings.return_value = settings
 
         loop = TradingLoop(
@@ -325,7 +325,7 @@ class TestTradingLoop:
         settings = MagicMock()
         settings.trading_mode = TradingMode.DEMO
         settings.kalshi_api_key = "test_key"
-        settings.kalshi_api_secret = "test_secret"
+
         settings.kalshi_api_url = "https://demo-api.kalshi.co"
         mock_settings.return_value = settings
         mock_loader.get_city.return_value = mock_city_loader
@@ -502,7 +502,7 @@ class TestTradingLoop:
         settings = MagicMock()
         settings.trading_mode = TradingMode.DEMO
         settings.kalshi_api_key = "test"
-        settings.kalshi_api_secret = "test"
+
         mock_settings.return_value = settings
         mock_loader.get_city.return_value = mock_city_loader
 
@@ -649,7 +649,7 @@ class TestTradingLoopErrorHandling:
         settings = MagicMock()
         settings.trading_mode = TradingMode.DEMO
         settings.kalshi_api_key = "test"
-        settings.kalshi_api_secret = "test"
+
         mock_settings.return_value = settings
         mock_loader.get_city.return_value = mock_city_loader
 
@@ -716,7 +716,7 @@ class TestTradingLoopErrorHandling:
         settings = MagicMock()
         settings.trading_mode = TradingMode.DEMO
         settings.kalshi_api_key = "test"
-        settings.kalshi_api_secret = "test"
+
         mock_settings.return_value = settings
         mock_loader.get_city.return_value = mock_city_loader
 
@@ -768,7 +768,7 @@ class TestTradingLoopErrorHandling:
         settings = MagicMock()
         settings.trading_mode = TradingMode.DEMO
         settings.kalshi_api_key = "test"
-        settings.kalshi_api_secret = "test"
+
         mock_settings.return_value = settings
         mock_loader.get_city.return_value = mock_city_loader
 
@@ -946,8 +946,8 @@ class TestTradingLoopOrderSubmissionEdgeCases:
         """Test order submission in LIVE mode without confirmation."""
         settings = MagicMock()
         settings.trading_mode = TradingMode.LIVE
-        settings.kalshi_api_key = "live_key"
-        settings.kalshi_api_secret = "live_secret"
+        settings.kalshi_api_key_id = "live_key"
+        settings.kalshi_private_key_path = "/path/to/key.pem"
         settings.kalshi_api_url = "https://api.kalshi.com"
         mock_settings.return_value = settings
         mock_loader.get_city.return_value = mock_city_loader
@@ -1010,7 +1010,7 @@ class TestTradingLoopOrderSubmissionEdgeCases:
         settings = MagicMock()
         settings.trading_mode = TradingMode.DEMO
         settings.kalshi_api_key = "test"
-        settings.kalshi_api_secret = "test"
+
         settings.kalshi_api_url = "https://demo-api.kalshi.co"
         mock_settings.return_value = settings
         mock_loader.get_city.return_value = mock_city_loader
@@ -1589,7 +1589,7 @@ class TestTradingLoopEdgeCases:
         settings = MagicMock()
         settings.trading_mode = TradingMode.DEMO
         settings.kalshi_api_key = "test"
-        settings.kalshi_api_secret = "test"
+
         settings.kalshi_api_url = "https://demo-api.kalshi.co"
         mock_settings.return_value = settings
         mock_loader.get_city.return_value = mock_city_loader
@@ -1656,7 +1656,7 @@ class TestOrderSubmissionExceptions:
         settings = MagicMock()
         settings.trading_mode = TradingMode.DEMO
         settings.kalshi_api_key = "test"
-        settings.kalshi_api_secret = "test"
+
         settings.kalshi_api_url = "https://demo-api.kalshi.co"
         mock_settings.return_value = settings
         mock_loader.get_city.return_value = mock_city_loader
@@ -1722,7 +1722,7 @@ class TestOrderSubmissionExceptions:
         settings = MagicMock()
         settings.trading_mode = TradingMode.DEMO
         settings.kalshi_api_key = "test"
-        settings.kalshi_api_secret = "test"
+
         settings.kalshi_api_url = "https://demo-api.kalshi.co"
         mock_settings.return_value = settings
         mock_loader.get_city.return_value = mock_city_loader
@@ -1785,7 +1785,7 @@ class TestOrderSubmissionExceptions:
         settings = MagicMock()
         settings.trading_mode = TradingMode.DEMO
         settings.kalshi_api_key = "test"
-        settings.kalshi_api_secret = "test"
+
         settings.kalshi_api_url = "https://demo-api.kalshi.co"
         mock_settings.return_value = settings
         mock_loader.get_city.return_value = mock_city_loader
@@ -1851,7 +1851,7 @@ class TestOrderSubmissionExceptions:
         settings = MagicMock()
         settings.trading_mode = TradingMode.DEMO
         settings.kalshi_api_key = "test"
-        settings.kalshi_api_secret = "test"
+
         settings.kalshi_api_url = "https://demo-api.kalshi.co"
         mock_settings.return_value = settings
         mock_loader.get_city.return_value = mock_city_loader
@@ -1951,7 +1951,7 @@ class TestTradingModeEnforcement:
         settings = MagicMock()
         settings.trading_mode = TradingMode.DEMO
         settings.kalshi_api_key = "demo_key"
-        settings.kalshi_api_secret = "demo_secret"
+
         settings.kalshi_api_url = "https://demo-api.kalshi.co"
         mock_settings.return_value = settings
         mock_loader.get_city.return_value = mock_city_loader
@@ -2012,8 +2012,8 @@ class TestTradingModeEnforcement:
         """Test LIVE mode requires explicit confirmation before trading."""
         settings = MagicMock()
         settings.trading_mode = TradingMode.LIVE
-        settings.kalshi_api_key = "live_key"
-        settings.kalshi_api_secret = "live_secret"
+        settings.kalshi_api_key_id = "live_key"
+        settings.kalshi_private_key_path = "/path/to/key.pem"
         settings.kalshi_api_url = "https://api.kalshi.com"
         mock_settings.return_value = settings
         mock_loader.get_city.return_value = mock_city_loader
@@ -2147,7 +2147,7 @@ class TestTradingLoopValidation:
         settings = MagicMock()
         settings.trading_mode = TradingMode.DEMO
         settings.kalshi_api_key = "test_key"
-        settings.kalshi_api_secret = "test_secret"
+
         settings.kalshi_api_url = "https://api.kalshi.com"  # Production URL
         mock_settings.return_value = settings
 
@@ -2157,22 +2157,21 @@ class TestTradingLoopValidation:
 
     @patch("src.trader.trading_loop.city_loader")
     @patch("src.trader.trading_loop.get_settings")
-    def test_live_mode_with_demo_url_warning(
+    def test_live_mode_with_demo_url_raises(
         self,
         mock_settings: MagicMock,
         mock_loader: MagicMock,
     ) -> None:
-        """Test LIVE mode with demo URL logs warning."""
+        """Test LIVE mode with demo URL raises ValueError."""
         settings = MagicMock()
         settings.trading_mode = TradingMode.LIVE
-        settings.kalshi_api_key = "live_key"
-        settings.kalshi_api_secret = "live_secret"
+        settings.kalshi_api_key_id = "live_key"
+        settings.kalshi_private_key_path = "/path/to/key.pem"
         settings.kalshi_api_url = "https://demo-api.kalshi.co"  # Demo URL
         mock_settings.return_value = settings
 
-        # Should not raise, but would log warning
-        loop = TradingLoop(trading_mode=TradingMode.LIVE)
-        assert loop.trading_mode == TradingMode.LIVE
+        with pytest.raises(ValueError, match="LIVE mode cannot use demo API URL"):
+            TradingLoop(trading_mode=TradingMode.LIVE)
 
     @patch("src.trader.trading_loop.city_loader")
     @patch("src.trader.trading_loop.get_settings")
@@ -2202,8 +2201,8 @@ class TestTradingLoopValidation:
         """Test confirm_live_mode raises error without Kalshi client."""
         settings = MagicMock()
         settings.trading_mode = TradingMode.LIVE
-        settings.kalshi_api_key = "key"
-        settings.kalshi_api_secret = "secret"
+        settings.kalshi_api_key_id = "key"
+        settings.kalshi_private_key_path = "/path/to/key.pem"
         settings.kalshi_api_url = "https://api.kalshi.com"
         mock_settings.return_value = settings
 

@@ -257,26 +257,15 @@ class TestGetDataProvider:
 class TestRenderHeader:
     """Tests for render_header function."""
     
-    @patch("src.dashboard.app.get_data_provider")
-    @patch("src.dashboard.app.render_health_indicator")
-    def test_renders_header_components(self, mock_render_health, mock_get_provider, mock_streamlit, mock_data_provider):
+    def test_renders_header_components(self, mock_streamlit, mock_data_provider):
         """Test that header renders all components."""
-        mock_get_provider.return_value = mock_data_provider
-        
         render_header()
-        
-        # Check title was called
-        mock_streamlit.title.assert_called_once()
-        assert "Weather Trading Dashboard" in str(mock_streamlit.title.call_args)
-        
-        # Check caption was called
-        mock_streamlit.caption.assert_called()
-        
-        # Check metric was called for last updated
-        mock_streamlit.metric.assert_called()
-        
-        # Check health indicator was rendered
-        mock_render_health.assert_called_once()
+
+        # Header uses columns layout
+        mock_streamlit.columns.assert_called_once()
+
+        # Header uses markdown for styled title
+        mock_streamlit.markdown.assert_called()
 
 
 class TestRenderCityMarketsTab:
@@ -286,13 +275,14 @@ class TestRenderCityMarketsTab:
     def test_renders_city_markets(self, mock_render_grid, mock_streamlit, mock_data_provider):
         """Test that city markets tab renders correctly."""
         render_city_markets_tab(mock_data_provider)
-        
-        # Check subheader was called
-        mock_streamlit.subheader.assert_called_with("10-City Market Overview")
-        
+
+        # Check heading was rendered via markdown with HTML
+        markdown_calls = [str(c) for c in mock_streamlit.markdown.call_args_list]
+        assert any("10-City Market Overview" in c for c in markdown_calls)
+
         # Check data was fetched
         mock_data_provider.get_city_market_data.assert_called_once()
-        
+
         # Check grid was rendered
         mock_render_grid.assert_called_once()
 
@@ -305,19 +295,21 @@ class TestRenderPerformanceTab:
     def test_renders_performance_tab(self, mock_render_heatmap, mock_render_chart, mock_streamlit, mock_data_provider):
         """Test that performance tab renders correctly."""
         mock_streamlit.selectbox.return_value = "1 Month"
-        
+
         render_performance_tab(mock_data_provider)
-        
-        # Check subheaders were called
-        assert mock_streamlit.subheader.call_count >= 2
-        
+
+        # Check section headings were rendered via markdown with HTML
+        markdown_calls = [str(c) for c in mock_streamlit.markdown.call_args_list]
+        assert any("Performance Summary" in c for c in markdown_calls)
+        assert any("Equity Curve" in c for c in markdown_calls)
+
         # Check selectbox was called for time range
         mock_streamlit.selectbox.assert_called()
-        
+
         # Check equity curve was fetched and rendered
-        mock_data_provider.get_equity_curve.assert_called_once()
+        mock_data_provider.get_equity_curve.assert_called()
         mock_render_chart.assert_called_once()
-        
+
         # Check city metrics were fetched and rendered
         mock_data_provider.get_city_metrics.assert_called_once()
         mock_render_heatmap.assert_called_once()
@@ -326,14 +318,14 @@ class TestRenderPerformanceTab:
     @patch("src.dashboard.app.render_performance_heatmap")
     def test_handles_different_time_ranges(self, mock_render_heatmap, mock_render_chart, mock_streamlit, mock_data_provider):
         """Test that different time ranges are handled correctly."""
-        for time_range in ["1 Week", "3 Months", "All Time"]:
+        for time_range in ["1 Day", "7 Days", "All Time"]:
             mock_streamlit.selectbox.return_value = time_range
             mock_data_provider.reset_mock()
-            
+
             render_performance_tab(mock_data_provider)
-            
+
             # Check equity curve was fetched
-            mock_data_provider.get_equity_curve.assert_called_once()
+            mock_data_provider.get_equity_curve.assert_called()
 
 
 class TestRenderTradeFeedTab:
@@ -343,19 +335,20 @@ class TestRenderTradeFeedTab:
     def test_renders_trade_feed_all_cities(self, mock_render_feed, mock_streamlit, mock_data_provider):
         """Test that trade feed renders for all cities."""
         mock_streamlit.selectbox.return_value = "All Cities"
-        
+
         render_trade_feed_tab(mock_data_provider)
-        
-        # Check subheader and info were called
-        mock_streamlit.subheader.assert_called_with("Public Trade Feed")
+
+        # Check heading was rendered via markdown with HTML
+        markdown_calls = [str(c) for c in mock_streamlit.markdown.call_args_list]
+        assert any("Public Trade Feed" in c for c in markdown_calls)
         mock_streamlit.info.assert_called()
-        
+
         # Check city codes were fetched
         mock_data_provider.get_city_codes.assert_called_once()
-        
+
         # Check trades were fetched with no city filter
         mock_data_provider.get_public_trades.assert_called_with(city_code=None, limit=100)
-        
+
         # Check feed was rendered
         mock_render_feed.assert_called_once()
     
@@ -376,18 +369,20 @@ class TestRenderHealthTab:
     def test_renders_health_tab_with_data(self, mock_streamlit, mock_data_provider):
         """Test that health tab renders with data."""
         render_health_tab(mock_data_provider)
-        
-        # Check subheader was called
-        mock_streamlit.subheader.assert_called()
-        
+
+        # Check heading was rendered via markdown with HTML
+        markdown_calls = [str(c) for c in mock_streamlit.markdown.call_args_list]
+        assert any("System Health Status" in c for c in markdown_calls)
+
         # Check health status was fetched
         mock_data_provider.get_health_status.assert_called_once()
-        
-        # Check metrics were displayed
-        assert mock_streamlit.metric.call_count >= 4
-        
-        # Check expander was used for components
-        mock_streamlit.expander.assert_called()
+
+        # Check health metrics and component details rendered via markdown
+        # The source renders overall status, summary metrics, and component cards all via st.markdown
+        assert mock_streamlit.markdown.call_count >= 4
+
+        # Check component details heading was rendered
+        assert any("Component Details" in c for c in markdown_calls)
     
     def test_renders_health_tab_without_data(self, mock_streamlit, mock_data_provider):
         """Test that health tab handles missing data."""
@@ -471,16 +466,15 @@ class TestMain:
     def test_main_renders_sidebar(self, mock_render_header, mock_render_content, mock_streamlit):
         """Test that main function renders the sidebar."""
         main()
-        
+
         # Verify sidebar context manager was used
         mock_streamlit.sidebar.__enter__.assert_called_once()
         mock_streamlit.sidebar.__exit__.assert_called_once()
-        
-        # Inside `with st.sidebar:`, calls go to st.header, st.checkbox, st.button
-        # (not sidebar.header, etc.)
+
+        # Inside `with st.sidebar:`, calls go to st.header, st.button, st.divider, st.caption
         mock_streamlit.header.assert_called_with("Settings")
-        mock_streamlit.checkbox.assert_called()
         mock_streamlit.button.assert_called_with("Refresh Now")
+        mock_streamlit.divider.assert_called()
         mock_streamlit.caption.assert_called()
     
     @patch("src.dashboard.app.render_main_content")
@@ -498,11 +492,15 @@ class TestMain:
     @patch("src.dashboard.app.render_main_content")
     @patch("src.dashboard.app.render_header")
     def test_main_initializes_auto_refresh(self, mock_render_header, mock_render_content, mock_streamlit):
-        """Test that auto_refresh is initialized in session state."""
+        """Test that main renders all major sections."""
         main()
-        
-        # Check auto_refresh was set in session state
-        assert "auto_refresh" in mock_streamlit.session_state
+
+        # Check that header and main content were rendered
+        mock_render_header.assert_called_once()
+        mock_render_content.assert_called_once()
+
+        # Check that sidebar was used
+        mock_streamlit.sidebar.__enter__.assert_called_once()
     
     @patch("src.dashboard.app.render_main_content")
     @patch("src.dashboard.app.render_header")

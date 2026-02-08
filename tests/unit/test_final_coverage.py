@@ -19,26 +19,26 @@ class TestTradingLoopFinalCoverage:
 
     @patch("src.shared.api.kalshi.KalshiClient")
     @patch("src.trader.trading_loop.get_settings")
-    def test_validate_trading_mode_live_with_demo_url_warning(
+    def test_validate_trading_mode_live_with_demo_url_raises(
         self, mock_settings: MagicMock, mock_kalshi: MagicMock
     ) -> None:
-        """Test line 332-333: LIVE mode with demo URL warning."""
+        """Test line 332-333: LIVE mode with demo URL raises ValueError."""
         from src.trader.trading_loop import TradingLoop
         from src.shared.config.settings import TradingMode
 
         settings = MagicMock()
         settings.trading_mode = TradingMode.LIVE
-        settings.kalshi_api_key = "test-key"
-        settings.kalshi_api_secret = "test-secret"
+        settings.kalshi_api_key_id = "test-key"
+        settings.kalshi_private_key_path = "/path/to/key.pem"
         settings.kalshi_api_url = "https://demo-api.kalshi.co/trade-api/v2"  # Demo URL
         mock_settings.return_value = settings
 
         # Mock KalshiClient to avoid actual instantiation
         mock_kalshi.return_value = MagicMock()
 
-        # Should log warning but not raise
-        loop = TradingLoop(trading_mode=TradingMode.LIVE)
-        assert loop.trading_mode == TradingMode.LIVE
+        # LIVE mode with demo URL should raise ValueError
+        with pytest.raises(ValueError, match="LIVE mode cannot use demo API URL"):
+            TradingLoop(trading_mode=TradingMode.LIVE)
 
     @patch("src.shared.api.kalshi.KalshiClient")
     @patch("src.trader.trading_loop.get_settings")
@@ -52,7 +52,6 @@ class TestTradingLoopFinalCoverage:
         settings = MagicMock()
         settings.trading_mode = TradingMode.DEMO
         settings.kalshi_api_key = "test-key"
-        settings.kalshi_api_secret = "test-secret"
         settings.kalshi_api_url = "https://api.kalshi.co/trade-api/v2"  # Production URL
         mock_settings.return_value = settings
 
@@ -74,6 +73,7 @@ class TestTradingLoopFinalCoverage:
 
         settings = MagicMock()
         settings.trading_mode = TradingMode.SHADOW
+        settings.bankroll = 5000.0
         mock_settings.return_value = settings
 
         mock_loader.get_all_cities.return_value = {"NYC": MagicMock()}
@@ -112,6 +112,7 @@ class TestTradingLoopFinalCoverage:
 
         settings = MagicMock()
         settings.trading_mode = TradingMode.SHADOW
+        settings.bankroll = 5000.0
         mock_settings.return_value = settings
 
         mock_trading_loop = MagicMock(spec=TradingLoop)
@@ -147,42 +148,29 @@ class TestKalshiFinalCoverage:
     """Tests for final uncovered lines in kalshi.py."""
 
     @patch("requests.Session.request")
-    @patch("requests.Session.post")
     def test_make_request_max_retries_exceeded(
-        self, mock_post: MagicMock, mock_request: MagicMock
+        self, mock_request: MagicMock
     ) -> None:
         """Test line 205: RequestException is raised on network error."""
         from src.shared.api.kalshi import KalshiClient
         import requests
 
-        # Mock auth
-        mock_auth_response = MagicMock()
-        mock_auth_response.status_code = 200
-        mock_auth_response.json.return_value = {"token": "test_token"}
-        mock_post.return_value = mock_auth_response
-
         # Make all requests fail with RequestException (not HTTPError)
         mock_request.side_effect = requests.RequestException("Network error")
 
-        client = KalshiClient(api_key="test", api_secret="test")
+        client = KalshiClient(api_key="test")
 
-        # RequestException is re-raised directly, not wrapped in HTTPError
-        with pytest.raises(requests.RequestException, match="Network error"):
-            client.get_markets()
+        with patch.object(KalshiClient, "_get_auth_headers", return_value={"KALSHI-ACCESS-KEY": "test"}):
+            # RequestException is re-raised directly, not wrapped in HTTPError
+            with pytest.raises(requests.RequestException, match="Network error"):
+                client.get_markets()
 
     @patch("requests.Session.request")
-    @patch("requests.Session.post")
     def test_get_markets_typed_market_parse_warning(
-        self, mock_post: MagicMock, mock_request: MagicMock
+        self, mock_request: MagicMock
     ) -> None:
         """Test line 518-519: Market parse error warning."""
         from src.shared.api.kalshi import KalshiClient
-
-        # Mock auth
-        mock_auth_response = MagicMock()
-        mock_auth_response.status_code = 200
-        mock_auth_response.json.return_value = {"token": "test_token"}
-        mock_post.return_value = mock_auth_response
 
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -195,26 +183,21 @@ class TestKalshiFinalCoverage:
         }
         mock_request.return_value = mock_response
 
-        client = KalshiClient(api_key="test", api_secret="test")
-        markets = client.get_markets_typed()
+        client = KalshiClient(api_key="test")
+
+        with patch.object(KalshiClient, "_get_auth_headers", return_value={"KALSHI-ACCESS-KEY": "test"}):
+            markets = client.get_markets_typed()
 
         # Should parse valid market, skip invalid one with warning
         assert len(markets) == 1
         assert markets[0].ticker == "VALID"
 
     @patch("requests.Session.request")
-    @patch("requests.Session.post")
     def test_get_orderbook_typed_yes_and_no_level_parse_warning(
-        self, mock_post: MagicMock, mock_request: MagicMock
+        self, mock_request: MagicMock
     ) -> None:
         """Test line 568-570: Orderbook yes and no level parse error warnings."""
         from src.shared.api.kalshi import KalshiClient
-
-        # Mock auth
-        mock_auth_response = MagicMock()
-        mock_auth_response.status_code = 200
-        mock_auth_response.json.return_value = {"token": "test_token"}
-        mock_post.return_value = mock_auth_response
 
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -233,8 +216,10 @@ class TestKalshiFinalCoverage:
         }
         mock_request.return_value = mock_response
 
-        client = KalshiClient(api_key="test", api_secret="test")
-        orderbook = client.get_orderbook_typed("TEST")
+        client = KalshiClient(api_key="test")
+
+        with patch.object(KalshiClient, "_get_auth_headers", return_value={"KALSHI-ACCESS-KEY": "test"}):
+            orderbook = client.get_orderbook_typed("TEST")
 
         # Should parse valid levels, skip invalid ones with warning
         assert len(orderbook.yes) == 1

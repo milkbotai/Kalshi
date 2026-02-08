@@ -156,12 +156,12 @@ class TradingLoop:
                     "LIVE mode requires KALSHI_API_KEY_ID and KALSHI_PRIVATE_KEY_PATH"
                 )
 
-            # LIVE mode should use production URL
+            # LIVE mode must NOT use demo URL
             if "demo" in (settings.kalshi_api_url or "").lower():
-                logger.warning(
-                    "live_mode_with_demo_url",
-                    url=settings.kalshi_api_url,
-                    message="LIVE mode configured but using demo API URL",
+                raise ValueError(
+                    "LIVE mode cannot use demo API URL. "
+                    f"Current URL: {settings.kalshi_api_url}. "
+                    "Set KALSHI_API_URL to the production endpoint."
                 )
 
         elif self.trading_mode == TradingMode.DEMO:
@@ -978,8 +978,10 @@ class MultiCityOrchestrator:
         """
         import os
 
-        heartbeat_path = os.environ.get("HEARTBEAT_FILE", "/tmp/milkbot_heartbeat.txt")
+        heartbeat_path = os.environ.get("HEARTBEAT_FILE", "/opt/milkbot/data/heartbeat.txt")
         try:
+            # Ensure heartbeat directory exists
+            os.makedirs(os.path.dirname(heartbeat_path), exist_ok=True)
             now = datetime.now(timezone.utc).isoformat()
             heartbeat_data = f"{now}|{markets_scanned}|{signals_generated}"
             with open(heartbeat_path, "w") as f:
@@ -1070,12 +1072,72 @@ class MultiCityOrchestrator:
 
 # Entry point for running as module
 if __name__ == "__main__":
+    import os
     import sys
     import time
-    
+
     logger.info("trading_loop_starting")
     settings = get_settings()
-    
+
+    # ── Pre-flight validation ───────────────────────────────────────
+    preflight_ok = True
+
+    if settings.trading_mode == TradingMode.LIVE:
+        # Validate API key is set for LIVE mode
+        if not settings.kalshi_api_key_id:
+            logger.error(
+                "preflight_failed",
+                check="KALSHI_API_KEY_ID",
+                message="KALSHI_API_KEY_ID must be set for LIVE trading mode",
+            )
+            preflight_ok = False
+
+        # Validate private key path is set and file exists for LIVE mode
+        if not settings.kalshi_private_key_path:
+            logger.error(
+                "preflight_failed",
+                check="KALSHI_PRIVATE_KEY_PATH",
+                message="KALSHI_PRIVATE_KEY_PATH must be set for LIVE trading mode",
+            )
+            preflight_ok = False
+        elif not os.path.isfile(settings.kalshi_private_key_path):
+            logger.error(
+                "preflight_failed",
+                check="KALSHI_PRIVATE_KEY_PATH",
+                message=f"Private key file not found: {settings.kalshi_private_key_path}",
+            )
+            preflight_ok = False
+
+    # Check database connectivity
+    try:
+        from src.shared.db.connection import DatabaseManager
+
+        _db = DatabaseManager()
+        if not _db.health_check():
+            logger.error(
+                "preflight_failed",
+                check="database",
+                message="Database health check returned False",
+            )
+            preflight_ok = False
+        else:
+            logger.info("preflight_passed", check="database")
+        _db.close()
+    except Exception as exc:
+        logger.error(
+            "preflight_failed",
+            check="database",
+            message=f"Could not connect to database: {exc}",
+        )
+        preflight_ok = False
+
+    if not preflight_ok:
+        logger.error("preflight_validation_failed", message="One or more pre-flight checks failed. Exiting.")
+        sys.exit(1)
+
+    logger.info("preflight_validation_passed", trading_mode=settings.trading_mode.value)
+    # ── End pre-flight validation ───────────────────────────────────
+
     # Initialize trading loop
     try:
         orchestrator = MultiCityOrchestrator(
@@ -1090,7 +1152,7 @@ if __name__ == "__main__":
     except Exception as e:
         logger.error("orchestrator_init_failed", error=str(e))
         sys.exit(1)
-    
+
     # Confirm LIVE mode if configured
     if settings.trading_mode == TradingMode.LIVE:
         orchestrator.trading_loop.confirm_live_mode()

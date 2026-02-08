@@ -56,6 +56,12 @@ ssh "$SSH_USER@$VPS_IP" "
     sudo -u milkbot venv/bin/pip install --upgrade pip
     sudo -u milkbot venv/bin/pip install -r requirements.txt
 
+    echo 'Running database migrations...'
+    sudo -u milkbot PYTHONPATH=$DEPLOY_DIR venv/bin/python -m src.shared.db.migrate || {
+        echo 'WARNING: Database migrations failed. Check DB connectivity and .env config.'
+        echo 'You can re-run manually: sudo -u milkbot PYTHONPATH=$DEPLOY_DIR venv/bin/python -m src.shared.db.migrate'
+    }
+
     echo 'Setting up systemd services...'
     sudo cp deployment/systemd/*.service /etc/systemd/system/
     sudo cp deployment/systemd/*.timer /etc/systemd/system/

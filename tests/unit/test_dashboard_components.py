@@ -210,24 +210,25 @@ class TestRenderCityCard:
             volume=1500,
             last_signal="BUY",
         )
-        
+
         render_city_card(city)
-        
-        # Check markdown was called for city code
-        mock_streamlit.markdown.assert_called()
-        
-        # Check caption was called for city name
-        mock_streamlit.caption.assert_called_with("New York City")
-        
-        # Check metric was called for temperature
-        mock_streamlit.metric.assert_called()
-        
-        # Check write was called for bid/ask, spread, volume
-        # Note: spread uses markdown, signal uses markdown, so write is called 2 times (bid/ask, volume)
-        assert mock_streamlit.write.call_count >= 2
-        
-        # Check divider was called
-        mock_streamlit.divider.assert_called()
+
+        # Check markdown was called with HTML containing the city card
+        mock_streamlit.markdown.assert_called_once()
+        call_args = mock_streamlit.markdown.call_args
+        html_content = call_args[0][0]
+
+        # Verify city name, temperature, bid/ask, spread, volume, and signal in HTML
+        assert "New York City" in html_content
+        assert "72" in html_content  # temperature 72.5 -> 72°F
+        assert "45" in html_content  # bid
+        assert "48" in html_content  # ask
+        assert "3" in html_content   # spread
+        assert "1,500" in html_content  # volume
+        assert "BUY" in html_content  # signal
+
+        # Verify unsafe_allow_html=True was passed
+        assert call_args[1].get("unsafe_allow_html") is True
     
     def test_renders_city_card_with_missing_data(self, mock_streamlit):
         """Test that city card handles missing data."""
@@ -241,12 +242,18 @@ class TestRenderCityCard:
             volume=None,
             last_signal=None,
         )
-        
+
         render_city_card(city)
-        
-        # Check N/A values were displayed
-        mock_streamlit.metric.assert_called()
-        mock_streamlit.write.assert_called()
+
+        # Check markdown was called with HTML containing fallback values
+        mock_streamlit.markdown.assert_called_once()
+        html_content = mock_streamlit.markdown.call_args[0][0]
+
+        # Verify city name is present
+        assert "Los Angeles" in html_content
+
+        # Verify dash placeholder for missing values
+        assert "\u2014" in html_content  # em dash used for None values
     
     def test_renders_city_card_spread_colors(self, mock_streamlit):
         """Test that spread colors are applied correctly."""
@@ -367,14 +374,11 @@ class TestRenderEquityChart:
                 "drawdown_pct": 0.0,
             },
         ]
-        
+
         render_equity_chart(equity_data)
-        
+
         # Check plotly chart was called
         mock_streamlit.plotly_chart.assert_called_once()
-        
-        # Check metrics were displayed
-        assert mock_streamlit.metric.call_count == 4
 
 
 class TestRenderTradeFeed:
@@ -418,11 +422,14 @@ class TestRenderTradeFeed:
                 "realized_pnl": None,
             },
         ]
-        
+
         render_trade_feed(trades)
-        
-        # Check dataframe was called
-        mock_streamlit.dataframe.assert_called_once()
+
+        # Check markdown was called for trade rows (rendered as HTML cards)
+        # The source renders a "### Recent Trades" header plus individual trade row cards via st.markdown
+        assert mock_streamlit.markdown.call_count >= 1
+        markdown_calls = [str(c) for c in mock_streamlit.markdown.call_args_list]
+        assert any("Recent Trades" in c for c in markdown_calls)
 
 
 class TestRenderPerformanceHeatmap:
@@ -457,17 +464,19 @@ class TestRenderPerformanceHeatmap:
                 "trade_count": 5,
             },
         ]
-        
+
         render_performance_heatmap(city_metrics)
-        
+
         # Check plotly chart was called
         mock_streamlit.plotly_chart.assert_called_once()
-        
-        # Check subheader was called
-        mock_streamlit.subheader.assert_called_with("City Breakdown")
-        
-        # Check write was called for each city
-        assert mock_streamlit.write.call_count >= 3
+
+        # Check "City Breakdown" heading was rendered via markdown with HTML
+        markdown_calls = [str(c) for c in mock_streamlit.markdown.call_args_list]
+        assert any("City Breakdown" in c for c in markdown_calls)
+
+        # Check city breakdown cards were rendered via markdown (one per city)
+        # Plus the legend explanation and City Breakdown heading = at least 3 + 2
+        assert mock_streamlit.markdown.call_count >= 3
 
 
 class TestRenderHealthIndicator:

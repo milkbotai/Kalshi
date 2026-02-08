@@ -12,6 +12,10 @@ WorkingDirectory=/opt/milkbot
 Environment=PYTHONPATH=/opt/milkbot
 EnvironmentFile=/opt/milkbot/.env
 
+# Ensure log directory exists before starting
+ExecStartPre=/usr/bin/mkdir -p /var/log/milkbot
+ExecStartPre=/usr/bin/chown milkbot:milkbot /var/log/milkbot
+
 # Main trading loop - runs on timer schedule
 ExecStart=/opt/milkbot/venv/bin/python -m src.trader.trading_loop
 

@@ -18,19 +18,16 @@ import pytest
 class TestKalshiCoverageGaps:
     """Tests for uncovered lines in kalshi.py."""
 
+    @patch("src.shared.api.kalshi.KalshiClient._get_auth_headers")
     @patch("requests.Session.request")
-    @patch("requests.Session.post")
     def test_get_market_typed_returns_market_on_empty_ticker(
-        self, mock_post: MagicMock, mock_request: MagicMock
+        self, mock_request: MagicMock, mock_auth: MagicMock
     ) -> None:
         """Test get_market_typed returns Market even with empty ticker."""
         from src.shared.api.kalshi import KalshiClient
 
-        # Mock auth
-        mock_auth_response = MagicMock()
-        mock_auth_response.status_code = 200
-        mock_auth_response.json.return_value = {"token": "test_token"}
-        mock_post.return_value = mock_auth_response
+        # Mock auth headers
+        mock_auth.return_value = {"KALSHI-ACCESS-KEY": "test"}
 
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -38,26 +35,23 @@ class TestKalshiCoverageGaps:
         mock_response.json.return_value = {"market": {"ticker": "", "event_ticker": "", "title": ""}}
         mock_request.return_value = mock_response
 
-        client = KalshiClient(api_key="test", api_secret="test")
+        client = KalshiClient(api_key="test")
         market = client.get_market_typed("TEST")
 
         # Empty ticker is valid, returns Market with empty ticker
         assert market is not None
         assert market.ticker == ""
 
+    @patch("src.shared.api.kalshi.KalshiClient._get_auth_headers")
     @patch("requests.Session.request")
-    @patch("requests.Session.post")
     def test_get_orderbook_typed_handles_invalid_level_data(
-        self, mock_post: MagicMock, mock_request: MagicMock
+        self, mock_request: MagicMock, mock_auth: MagicMock
     ) -> None:
         """Test get_orderbook_typed handles invalid level data."""
         from src.shared.api.kalshi import KalshiClient
 
-        # Mock auth
-        mock_auth_response = MagicMock()
-        mock_auth_response.status_code = 200
-        mock_auth_response.json.return_value = {"token": "test_token"}
-        mock_post.return_value = mock_auth_response
+        # Mock auth headers
+        mock_auth.return_value = {"KALSHI-ACCESS-KEY": "test"}
 
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -75,49 +69,43 @@ class TestKalshiCoverageGaps:
         }
         mock_request.return_value = mock_response
 
-        client = KalshiClient(api_key="test", api_secret="test")
+        client = KalshiClient(api_key="test")
         orderbook = client.get_orderbook_typed("TEST")
 
         # Should have parsed valid level, skipped invalid ones
         assert len(orderbook.yes) >= 1
 
+    @patch("src.shared.api.kalshi.KalshiClient._get_auth_headers")
     @patch("requests.Session.request")
-    @patch("requests.Session.post")
     def test_calculate_spread_returns_none_when_market_none(
-        self, mock_post: MagicMock, mock_request: MagicMock
+        self, mock_request: MagicMock, mock_auth: MagicMock
     ) -> None:
         """Test calculate_spread returns None when market not found."""
         from src.shared.api.kalshi import KalshiClient
 
-        # Mock auth
-        mock_auth_response = MagicMock()
-        mock_auth_response.status_code = 200
-        mock_auth_response.json.return_value = {"token": "test_token"}
-        mock_post.return_value = mock_auth_response
+        # Mock auth headers
+        mock_auth.return_value = {"KALSHI-ACCESS-KEY": "test"}
 
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {"market": {}}
         mock_request.return_value = mock_response
 
-        client = KalshiClient(api_key="test", api_secret="test")
+        client = KalshiClient(api_key="test")
         spread = client.calculate_spread("NONEXISTENT")
 
         assert spread is None
 
+    @patch("src.shared.api.kalshi.KalshiClient._get_auth_headers")
     @patch("requests.Session.request")
-    @patch("requests.Session.post")
     def test_calculate_spread_with_valid_market(
-        self, mock_post: MagicMock, mock_request: MagicMock
+        self, mock_request: MagicMock, mock_auth: MagicMock
     ) -> None:
         """Test calculate_spread with valid market data."""
         from src.shared.api.kalshi import KalshiClient
 
-        # Mock auth
-        mock_auth_response = MagicMock()
-        mock_auth_response.status_code = 200
-        mock_auth_response.json.return_value = {"token": "test_token"}
-        mock_post.return_value = mock_auth_response
+        # Mock auth headers
+        mock_auth.return_value = {"KALSHI-ACCESS-KEY": "test"}
 
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -133,7 +121,7 @@ class TestKalshiCoverageGaps:
         }
         mock_request.return_value = mock_response
 
-        client = KalshiClient(api_key="test", api_secret="test")
+        client = KalshiClient(api_key="test")
         spread = client.calculate_spread("TEST")
 
         assert spread == 5

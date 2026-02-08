@@ -11,6 +11,7 @@
 | **Organization** | Binary Rogue |
 | **Title** | CEO — Chief Execution Officer |
 | **Hired** | January 2026 |
+| **Emoji** | 🥛⚡ |
 | **Status** | Active — 24/7/365 |
 
 ## Role

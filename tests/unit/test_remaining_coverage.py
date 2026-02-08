@@ -105,18 +105,11 @@ class TestKalshiLines568_570:
     """Test kalshi.py lines 568-570: market parse exception."""
 
     @patch("requests.Session.request")
-    @patch("requests.Session.post")
     def test_get_market_typed_parse_exception(
-        self, mock_post: MagicMock, mock_request: MagicMock
+        self, mock_request: MagicMock
     ) -> None:
         """Test get_market_typed returns None on parse exception."""
         from src.shared.api.kalshi import KalshiClient
-
-        # Mock auth
-        mock_auth_response = MagicMock()
-        mock_auth_response.status_code = 200
-        mock_auth_response.json.return_value = {"token": "test_token"}
-        mock_post.return_value = mock_auth_response
 
         # Return data that will cause exception during Market creation
         mock_response = MagicMock()
@@ -132,11 +125,12 @@ class TestKalshiLines568_570:
         }
         mock_request.return_value = mock_response
 
-        client = KalshiClient(api_key="test", api_secret="test")
+        client = KalshiClient(api_key="test")
 
-        # Lines 568-570: exception handling returns None
-        result = client.get_market_typed("TEST")
-        assert result is None
+        with patch.object(KalshiClient, "_get_auth_headers", return_value={"KALSHI-ACCESS-KEY": "test"}):
+            # Lines 568-570: exception handling returns None
+            result = client.get_market_typed("TEST")
+            assert result is None
 
 
 class TestNWSLine130:
