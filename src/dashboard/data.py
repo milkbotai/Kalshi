@@ -140,7 +140,7 @@ class DashboardDataProvider:
             return list(cities.keys())
         except Exception:
             # Fallback to hardcoded list
-            return ["NYC", "LAX", "CHI", "MIA", "DFW", "DEN", "PHX", "SEA", "ATL", "BOS"]
+            return ["NYC", "CHI", "LAX", "MIA", "AUS", "DEN", "PHL", "BOS", "SEA", "SFO"]
 
     def _fetch_nws_observation(self, station_id: str) -> tuple[float | None, datetime | None]:
         """Fetch current observation from NWS for a station.

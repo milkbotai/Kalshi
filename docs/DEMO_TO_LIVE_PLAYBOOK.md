@@ -220,16 +220,14 @@ sudo nano /opt/milkbot/.env
 # BEFORE (Demo)
 TRADING_MODE=demo
 KALSHI_API_BASE=https://demo-api.kalshi.co/trade-api/v2
-KALSHI_EMAIL=demo@example.com
-KALSHI_PASSWORD=demo_password
-KALSHI_MEMBER_ID=
+KALSHI_API_KEY_ID=your_demo_key_id
+KALSHI_PRIVATE_KEY_PATH=/opt/milkbot/kalshi_demo_key.pem
 
 # AFTER (Live)
 TRADING_MODE=live
 KALSHI_API_BASE=https://trading-api.kalshi.com/trade-api/v2
-KALSHI_EMAIL=your_live_email@example.com
-KALSHI_PASSWORD=your_live_password
-KALSHI_MEMBER_ID=your_member_id
+KALSHI_API_KEY_ID=your_live_key_id
+KALSHI_PRIVATE_KEY_PATH=/opt/milkbot/kalshi_private_key.pem
 ```
 
 **3. Update risk limits (if different for live):**
@@ -261,9 +259,13 @@ settings = get_settings()
 print(f'Trading Mode: {settings.trading_mode}')
 print(f'API Base: {settings.kalshi_api_url}')
 
-client = KalshiClient()
-auth = client.authenticate()
-print(f'Authentication: {\"SUCCESS\" if auth else \"FAILED\"}')
+client = KalshiClient(
+    api_key_id=settings.kalshi_api_key_id,
+    private_key_path=settings.kalshi_private_key_path,
+    base_url=settings.kalshi_api_url,
+)
+headers = client._get_auth_headers('GET', '/trade-api/v2/portfolio/balance')
+print(f'Authentication: {\"SUCCESS\" if headers else \"FAILED\"}')
 
 # Get account balance
 balance = client.get_balance()

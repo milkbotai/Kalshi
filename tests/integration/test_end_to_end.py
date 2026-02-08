@@ -25,16 +25,16 @@ class TestEndToEnd:
 
     @pytest.fixture
     def kalshi_client(self) -> KalshiClient:
-        """Create Kalshi client."""
-        api_key = os.getenv("KALSHI_API_KEY")
-        api_secret = os.getenv("KALSHI_API_SECRET")
-        
-        if not api_key or not api_secret:
-            pytest.skip("Kalshi API credentials not configured")
-        
+        """Create Kalshi client with RSA auth."""
+        api_key_id = os.getenv("KALSHI_API_KEY_ID")
+        private_key_path = os.getenv("KALSHI_PRIVATE_KEY_PATH")
+
+        if not api_key_id or not private_key_path:
+            pytest.skip("Kalshi API credentials not configured. Set KALSHI_API_KEY_ID and KALSHI_PRIVATE_KEY_PATH.")
+
         return KalshiClient(
-            api_key=api_key,
-            api_secret=api_secret,
+            api_key_id=api_key_id,
+            private_key_path=private_key_path,
             base_url="https://demo-api.kalshi.co/trade-api/v2",
         )
 

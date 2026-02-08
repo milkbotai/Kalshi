@@ -62,7 +62,7 @@ class TestAPIFailures:
         from src.shared.api.kalshi import KalshiClient
 
         # Should be able to create client (may fail on auth later)
-        client = KalshiClient(api_key="test", api_secret="test")
+        client = KalshiClient(api_key_id="test", private_key_path="/nonexistent/key.pem")
         assert client is not None
 
     @pytest.mark.chaos

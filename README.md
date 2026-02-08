@@ -30,7 +30,7 @@ MilkBot doesn't predict the weather. It predicts the prediction.
 | **Infrastructure** | Ubuntu 24.04 VPS, Nginx reverse proxy, Cloudflare DNS/SSL |
 | **Backend** | Python 3.12, async trading loop, PostgreSQL persistence |
 | **Dashboard** | Streamlit with custom dark theme ("Binary Rogue" aesthetic) |
-| **AI Cluster** | OpenRouter API (Claude 3 Haiku for speed, Claude Sonnet for depth) |
+| **AI Cluster** | OpenRouter API (Claude Sonnet 4 for analysis and explanation) |
 | **Weather Data** | National Weather Service (NWS) API, real-time observations |
 | **Exchange** | Kalshi REST API v2 with RSA key authentication |
 
@@ -55,7 +55,7 @@ Only when all five models align do we pull the trigger.
 - No fake numbers. No demo mode fantasies. Real data or nothing.
 
 ### City-by-City Performance Matrix
-- 10-city grid: NYC, CHI, LAX, MIA, DFW, DEN, PHX, SEA, ATL, BOS
+- 10-city grid: NYC, CHI, LAX, MIA, AUS, DEN, PHL, BOS, SEA, SFO
 - Win rate, net P&L, and trade count per city
 - Scatter plot visualization: Win Rate vs. Profitability
 
@@ -108,7 +108,7 @@ cp .env.example .env
 # Edit .env with your Kalshi API credentials and database URL
 
 # Run database migrations
-alembic upgrade head
+python -m src.shared.db.migrations.run
 
 # Launch the dashboard
 streamlit run src/dashboard/app.py --server.port 8501
@@ -154,8 +154,8 @@ Kalshi/
 │       └── constants.py    # System-wide constants
 │
 ├── tests/                   # Unit & integration tests
-├── alembic/                 # Database migrations
-├── .env                     # Environment configuration
+├── data/                    # City configs & static data
+├── .env.example             # Environment configuration template
 └── requirements.txt         # Python dependencies
 ```
 
@@ -176,12 +176,12 @@ MAX_CITY_EXPOSURE_PCT=0.03
 MAX_DAILY_LOSS_PCT=0.05
 
 # Execution Gates
-SPREAD_MAX_CENTS=3
+SPREAD_MAX_CENTS=4
 LIQUIDITY_MIN=500
-MIN_EDGE_AFTER_COSTS=0.02
+MIN_EDGE_AFTER_COSTS=0.03
 
 # Strategy Optimization
-# Only trade when edge >= 2% for higher win rate
+# Only trade when edge >= 3% for higher win rate
 ```
 
 ---

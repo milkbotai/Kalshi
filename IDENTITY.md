@@ -25,7 +25,7 @@ MilkBot doesn't predict the weather. It predicts the prediction.
 ## Capabilities
 
 ### Core — Trading Operations
-- **Market analysis**: Real-time NWS data ingestion across 10 U.S. cities (NYC, CHI, LAX, MIA, DFW, DEN, PHX, SEA, ATL, BOS)
+- **Market analysis**: Real-time NWS data ingestion across 10 U.S. cities (NYC, CHI, LAX, MIA, AUS, DEN, PHL, BOS, SEA, SFO)
 - **Signal generation**: 5-model proprietary scoring system (NWS forecast, historical variance, market sentiment, edge calculator, uncertainty filter)
 - **Trade execution**: Automated order management with confidence-weighted position sizing
 - **Risk management**: Per-trade (2%), per-city (3%), per-cluster (5%), daily loss (5%) limits — non-negotiable

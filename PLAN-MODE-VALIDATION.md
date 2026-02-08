@@ -68,7 +68,7 @@ Prompt:
 
 ## Pre-flight CLI sanity script
 ```bash
-cd /Users/milkbot/Projects/Milkbot-Kalshi
+cd /home/milk/repos/Kalshi
 python --version
 pytest -q
 mypy src/ --ignore-missing-imports

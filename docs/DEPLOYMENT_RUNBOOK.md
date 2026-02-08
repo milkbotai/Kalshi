@@ -195,8 +195,8 @@ POSTGRES_PASSWORD=YOUR_SECURE_PASSWORD
 
 # Kalshi API (Demo)
 KALSHI_API_BASE=https://demo-api.kalshi.co/trade-api/v2
-KALSHI_EMAIL=your_email@example.com
-KALSHI_PASSWORD=your_kalshi_password
+KALSHI_API_KEY_ID=your_api_key_id
+KALSHI_PRIVATE_KEY_PATH=/opt/milkbot/kalshi_private_key.pem
 
 # Logging
 LOG_LEVEL=INFO

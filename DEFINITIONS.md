@@ -2,7 +2,7 @@
 
 **Version:** 1.0  
 **Date:** 2026-01-23  
-**Repo path (local):** `/Users/milkbot/Projects/Milkbot-Kalshi`  
+**Repo path (local):** `/home/milk/repos/Kalshi`  
 
 ## Purpose
 Build an enterprise-grade, autonomous trading platform for **Kalshi weather/climate markets** and a **public-facing dashboard** at **milkbot.ai**.
