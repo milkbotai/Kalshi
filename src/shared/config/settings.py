@@ -169,6 +169,18 @@ class Settings(BaseSettings):
         description="Minimum market liquidity (volume + open interest)",
     )
 
+    # Trading loop timing
+    cycle_interval_sec: int = Field(
+        default=300,
+        ge=10,
+        description="Seconds between trading cycles",
+    )
+    error_sleep_sec: int = Field(
+        default=60,
+        ge=5,
+        description="Seconds to sleep after an error before retrying",
+    )
+
     # Feature flags
     enable_trading: bool = Field(
         default=False,

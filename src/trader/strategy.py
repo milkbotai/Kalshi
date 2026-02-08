@@ -4,11 +4,10 @@ Defines base Strategy class and Signal output model with probability
 calculations for temperature threshold markets.
 """
 
+import math
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any
-
-import scipy.stats as stats  # type: ignore[import-untyped]
 
 from src.shared.api.response_models import Market
 from src.shared.config.logging import get_logger
@@ -142,8 +141,11 @@ class Strategy:
         # Calculate z-score
         z_score = (forecast_value - threshold) / std_dev
 
-        # Probability of exceeding threshold
-        p_exceed = float(1.0 - stats.norm.cdf(z_score))
+        # Probability of exceeding threshold using error function
+        # CDF(z) = 0.5 * (1 + erf(z / sqrt(2)))
+        # P(value >= threshold) = 1 - CDF(-z_score) = CDF(z_score)
+        #   since z_score = (forecast - threshold)/std, positive means above
+        p_exceed = 0.5 * (1.0 - math.erf(-z_score / math.sqrt(2.0)))
 
         logger.debug(
             "threshold_probability_calculated",

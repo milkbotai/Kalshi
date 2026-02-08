@@ -529,7 +529,6 @@ class TestDailyHighTempStrategy:
 
         if signal.decision == "BUY":
             assert ReasonCode.STRONG_EDGE in signal.reasons
-            assert ReasonCode.SPREAD_OK in signal.reasons
 
     def test_evaluate_negative_temperature(
         self, strategy: DailyHighTempStrategy

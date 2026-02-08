@@ -159,8 +159,8 @@ class TestTokenBucket:
         # All should succeed
         assert all(results)
 
-        # Total tokens consumed should equal capacity
-        assert bucket.available_tokens < 0.2
+        # Total tokens consumed should be near zero (some may refill during execution)
+        assert bucket.available_tokens < 1.0
 
         metrics = bucket.get_metrics()
         assert metrics.total_requests == num_threads

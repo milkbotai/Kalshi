@@ -26,6 +26,28 @@ class OrderState:
     CLOSED = "closed"
 
 
+VALID_TRANSITIONS: dict[str, set[str]] = {
+    OrderState.PENDING: {OrderState.SUBMITTED, OrderState.FILLED, OrderState.REJECTED, OrderState.CANCELLED},
+    OrderState.SUBMITTED: {
+        OrderState.RESTING,
+        OrderState.PARTIALLY_FILLED,
+        OrderState.FILLED,
+        OrderState.REJECTED,
+        OrderState.CANCELLED,
+    },
+    OrderState.RESTING: {
+        OrderState.PARTIALLY_FILLED,
+        OrderState.FILLED,
+        OrderState.CANCELLED,
+    },
+    OrderState.PARTIALLY_FILLED: {OrderState.FILLED, OrderState.CANCELLED},
+    OrderState.FILLED: {OrderState.CLOSED},
+    OrderState.CANCELLED: set(),
+    OrderState.REJECTED: set(),
+    OrderState.CLOSED: set(),
+}
+
+
 class OrderManagementSystem:
     """Order Management System for trade execution.
 
@@ -190,6 +212,18 @@ class OrderManagementSystem:
 
         order = self._orders[intent_key]
         old_status = order["status"]
+
+        # Validate state transition
+        allowed = VALID_TRANSITIONS.get(old_status, set())
+        if status not in allowed:
+            logger.warning(
+                "invalid_state_transition",
+                intent_key=intent_key,
+                old_status=old_status,
+                new_status=status,
+                allowed=list(allowed),
+            )
+            return False
 
         # Update status
         order["status"] = status

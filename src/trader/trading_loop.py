@@ -270,6 +270,18 @@ class TradingLoop:
 
             if cached_weather.is_stale:
                 logger.warning("weather_data_stale", city_code=city_code)
+                errors.append(f"Weather data is stale for {city_code}")
+                return TradingCycleResult(
+                    city_code=city_code,
+                    started_at=started_at,
+                    completed_at=datetime.now(timezone.utc),
+                    weather_fetched=False,
+                    markets_fetched=0,
+                    signals_generated=0,
+                    gates_passed=0,
+                    orders_submitted=0,
+                    errors=errors,
+                )
 
             logger.debug(
                 "weather_fetched",
@@ -400,6 +412,17 @@ class TradingLoop:
                 logger.info("trade_blocked_city_exposure", ticker=market.ticker)
                 continue
 
+            # Check cluster exposure
+            if not self.risk_calculator.check_cluster_exposure(
+                city_config.cluster, trade_risk, cycle_positions
+            ):
+                logger.info(
+                    "trade_blocked_cluster_exposure",
+                    ticker=market.ticker,
+                    cluster=city_config.cluster,
+                )
+                continue
+
             # Step 5: Submit order based on trading mode
             try:
                 order = self._submit_order(signal, city_config, market, quantity)
@@ -407,6 +430,7 @@ class TradingLoop:
                     orders_submitted += 1
                     cycle_positions.append({
                         "city_code": city_code,
+                        "cluster": city_config.cluster,
                         "quantity": quantity,
                         "entry_price": signal.max_price or 50,
                     })
@@ -653,9 +677,9 @@ class TradingLoop:
         event_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         limit_price = int(signal.max_price or 50)
 
-        # Extract market_id from ticker or use hash if not available
-        # Market ID is typically embedded in the ticker or we can use a hash
-        market_id = hash(market.ticker) % 1000000  # Use ticker hash as ID
+        # Extract a deterministic market_id from the ticker string
+        import hashlib
+        market_id = int(hashlib.sha256(market.ticker.encode()).hexdigest()[:12], 16) % 1000000
 
         # Check for existing order with same intent
         order = self.oms.submit_order(
@@ -1002,12 +1026,32 @@ class MultiCityOrchestrator:
         except Exception as e:
             logger.warning("heartbeat_write_failed", error=str(e))
 
+    def _reconcile_fills(self) -> None:
+        """Reconcile fills from Kalshi API with local OMS state."""
+        try:
+            kalshi_client = getattr(self.trading_loop, "kalshi_client", None)
+            oms = getattr(self.trading_loop, "oms", None)
+            if kalshi_client and oms and self.trading_mode != TradingMode.SHADOW:
+                fills = kalshi_client.get_fills(limit=100)
+                if fills:
+                    summary = oms.reconcile_fills(fills)
+                    logger.info(
+                        "fills_reconciled",
+                        matched=summary["matched_count"],
+                        orphaned=summary["orphaned_count"],
+                    )
+        except Exception as e:
+            logger.warning("fill_reconciliation_failed", error=str(e))
+
     def _check_aggregate_risk(self) -> bool:
         """Check aggregate risk across all cities.
 
         Returns:
             True if within risk limits, False otherwise
         """
+        # Reconcile fills before checking risk
+        self._reconcile_fills()
+
         # Get all pending orders from OMS
         pending_orders = self.trading_loop.oms.get_orders_by_status("pending")
         resting_orders = self.trading_loop.oms.get_orders_by_status("resting")
@@ -1194,8 +1238,8 @@ if __name__ == "__main__":
             summary = orchestrator.get_run_summary(result)
             logger.info("trading_cycle_completed", **summary)
             
-            # Sleep between cycles (configurable, default 5 minutes)
-            cycle_interval = 300  # seconds
+            # Sleep between cycles
+            cycle_interval = settings.cycle_interval_sec
             logger.info("sleeping_until_next_cycle", seconds=cycle_interval)
             time.sleep(cycle_interval)
             
@@ -1205,4 +1249,4 @@ if __name__ == "__main__":
         except Exception as e:
             logger.error("trading_cycle_error", error=str(e))
             # Sleep on error to avoid tight loop
-            time.sleep(60)
+            time.sleep(settings.error_sleep_sec)

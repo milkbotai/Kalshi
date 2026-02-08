@@ -127,14 +127,14 @@ class TestStrategy:
 
         # Forecast 35°F, threshold 32°F, std_dev 3°F
         # z-score = (35-32)/3 = 1.0
-        # P(X >= 32) = 1 - CDF(1.0) ≈ 0.1587
+        # P(X >= 32) = CDF(1.0) ≈ 0.8413
         p = strategy.calculate_threshold_probability(
             forecast_value=35.0,
             threshold=32.0,
             std_dev=3.0,
         )
 
-        assert 0.15 <= p <= 0.17  # Approximately 15.87%
+        assert 0.83 <= p <= 0.85  # Approximately 84.13%
 
     def test_calculate_threshold_probability_at_threshold(self) -> None:
         """Test probability calculation when forecast equals threshold."""
@@ -156,14 +156,14 @@ class TestStrategy:
 
         # Forecast 29°F, threshold 32°F, std_dev 3°F
         # z-score = (29-32)/3 = -1.0
-        # P(X >= 32) = 1 - CDF(-1.0) ≈ 0.8413
+        # P(X >= 32) = CDF(-1.0) ≈ 0.1587
         p = strategy.calculate_threshold_probability(
             forecast_value=29.0,
             threshold=32.0,
             std_dev=3.0,
         )
 
-        assert 0.83 <= p <= 0.85  # Approximately 84.13%
+        assert 0.15 <= p <= 0.17  # Approximately 15.87%
 
     def test_calculate_threshold_probability_zero_std_dev(self) -> None:
         """Test probability calculation with zero standard deviation."""

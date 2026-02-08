@@ -438,8 +438,9 @@ class TestTradingLoop:
 
         result = loop.run_cycle("NYC")
 
-        # Should still succeed but weather was stale
-        assert result.weather_fetched is True
+        # Stale weather should block trading and return early with error
+        assert result.weather_fetched is False
+        assert any("stale" in e.lower() for e in result.errors)
 
     @patch("src.trader.trading_loop.city_loader")
     @patch("src.trader.trading_loop.get_settings")

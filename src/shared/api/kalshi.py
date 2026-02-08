@@ -220,56 +220,37 @@ class KalshiClient:
 
         logger.debug("kalshi_request", method=method, url=url)
 
-        max_retries = 3
-        for attempt in range(max_retries):
-            try:
-                # Regenerate headers on retry (fresh timestamp)
-                if attempt > 0:
-                    headers = self._get_auth_headers(method.upper(), endpoint)
+        # Retries are handled by urllib3.Retry on the session adapter
+        # (3 retries with backoff on 429/500/502/503/504).
+        # No manual retry loop to avoid compounding attempts.
+        try:
+            response = self.session.request(
+                method=method,
+                url=url,
+                headers=headers,
+                params=params,
+                json=json_data,
+                timeout=30,
+            )
+            response.raise_for_status()
 
-                response = self.session.request(
-                    method=method,
-                    url=url,
-                    headers=headers,
-                    params=params,
-                    json=json_data,
-                    timeout=30,
-                )
-                response.raise_for_status()
+            logger.debug("kalshi_request_success", url=url, status=response.status_code)
+            return cast(dict[str, Any], response.json())
 
-                logger.debug("kalshi_request_success", url=url, status=response.status_code)
-                return cast(dict[str, Any], response.json())
+        except requests.HTTPError as e:
+            status_code = e.response.status_code if e.response else None
+            logger.error(
+                "kalshi_request_failed",
+                url=url,
+                status=status_code,
+                error=str(e),
+                response_text=e.response.text[:500] if e.response else None,
+            )
+            raise
 
-            except requests.HTTPError as e:
-                status_code = e.response.status_code if e.response else None
-
-                # Retry on server errors and rate limiting
-                if status_code in [429, 500, 502, 503, 504] and attempt < max_retries - 1:
-                    backoff_time = 2**attempt
-                    logger.warning(
-                        "kalshi_request_retry",
-                        url=url,
-                        status=status_code,
-                        attempt=attempt + 1,
-                        backoff_seconds=backoff_time,
-                    )
-                    time.sleep(backoff_time)
-                    continue
-
-                logger.error(
-                    "kalshi_request_failed",
-                    url=url,
-                    status=status_code,
-                    error=str(e),
-                    response_text=e.response.text[:500] if e.response else None,
-                )
-                raise
-
-            except requests.RequestException as e:
-                logger.error("kalshi_request_error", url=url, error=str(e))
-                raise
-
-        raise requests.HTTPError("Max retries exceeded")  # pragma: no cover
+        except requests.RequestException as e:
+            logger.error("kalshi_request_error", url=url, error=str(e))
+            raise
 
     def get_markets(
         self,

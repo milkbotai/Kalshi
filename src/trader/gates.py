@@ -150,7 +150,7 @@ def check_all_gates(
         market: Market to trade
         quantity: Desired trade quantity
         max_spread_cents: Maximum acceptable spread (default from settings)
-        min_liquidity_multiple: Minimum liquidity multiple (default 3.0)
+        min_liquidity_multiple: Minimum liquidity multiple (default 5.0)
         min_edge_cents: Minimum edge required in cents (default from settings)
 
     Returns:
@@ -165,7 +165,7 @@ def check_all_gates(
     if max_spread_cents is None:
         max_spread_cents = settings.spread_max_cents
     if min_liquidity_multiple is None:
-        min_liquidity_multiple = 3.0
+        min_liquidity_multiple = 5.0
     if min_edge_cents is None:
         min_edge_cents = settings.min_edge_after_costs * 100  # Convert fraction to cents
     failed_reasons = []

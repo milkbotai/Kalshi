@@ -4,6 +4,7 @@ Generates trading signals for daily high temperature markets using
 forecast data and historical variance.
 """
 
+import math
 from typing import Any
 
 from src.shared.api.response_models import Market
@@ -114,8 +115,27 @@ class DailyHighTempStrategy(Strategy):
         # Calculate probability of high >= threshold
         # P(high >= threshold) where high ~ N(forecast_high, std_dev^2)
         # Using error function approximation for normal CDF
-        import math
-        
+
+        # Guard against zero/negative std_dev (degenerate case)
+        if std_dev <= 0:
+            p_yes = 1.0 if forecast_high >= threshold else 0.0
+            uncertainty = 0.0
+            edge = 0.0
+            return Signal(
+                ticker=market.ticker,
+                p_yes=p_yes,
+                uncertainty=uncertainty,
+                edge=edge,
+                decision="HOLD",
+                reasons=[ReasonCode.HIGH_UNCERTAINTY],
+                features={
+                    "forecast_high": forecast_high,
+                    "threshold": threshold,
+                    "std_dev": std_dev,
+                    "market_price": market.mid_price,
+                },
+            )
+
         # Z-score: how many std devs is threshold above forecast
         z_score = (threshold - forecast_high) / std_dev
         
@@ -125,7 +145,10 @@ class DailyHighTempStrategy(Strategy):
         p_yes = 0.5 * (1.0 - math.erf(z_score / math.sqrt(2.0)))
 
         # Calculate uncertainty (normalized std dev)
-        uncertainty = min(std_dev / 10.0, 1.0)  # Normalize to 0-1
+        # Divisor of 15 gives std_dev=3.0 → uncertainty=0.20, providing
+        # breathing room below max_uncertainty=0.30 so normal variance
+        # doesn't flip decisions on noise
+        uncertainty = min(std_dev / 15.0, 1.0)
 
         # Get market price (use mid price if available)
         market_price = market.mid_price
@@ -212,7 +235,7 @@ class DailyHighTempStrategy(Strategy):
             side = "no"
             max_price = (1 - p_yes) * 100 - self.transaction_cost
 
-        buy_reasons = [ReasonCode.STRONG_EDGE, ReasonCode.SPREAD_OK]
+        buy_reasons = [ReasonCode.STRONG_EDGE]
 
         signal = Signal(
             ticker=market.ticker,

@@ -325,32 +325,20 @@ class TestKalshiClient:
 
     @patch("requests.Session.request")
     @patch.object(KalshiClient, "_get_auth_headers", return_value={"KALSHI-ACCESS-KEY": "test"})
-    def test_retry_on_server_error(self, mock_auth: MagicMock, mock_request: MagicMock) -> None:
-        """Test automatic retry on server errors."""
-        # First two calls fail, third succeeds
+    def test_server_error_is_raised(self, mock_auth: MagicMock, mock_request: MagicMock) -> None:
+        """Test server error is raised (retries handled by urllib3 adapter)."""
         mock_response_fail = MagicMock()
         mock_response_fail.status_code = 503
 
         http_error = requests.HTTPError()
         http_error.response = mock_response_fail
         mock_response_fail.raise_for_status.side_effect = http_error
+        mock_request.return_value = mock_response_fail
 
-        mock_response_success = MagicMock()
-        mock_response_success.status_code = 200
-        mock_response_success.json.return_value = {"markets": []}
+        client = KalshiClient(api_key="test")
 
-        mock_request.side_effect = [
-            mock_response_fail,
-            mock_response_fail,
-            mock_response_success,
-        ]
-
-        with patch("src.shared.api.kalshi.time.sleep"):
-            client = KalshiClient(api_key="test")
-            markets = client.get_markets()
-
-            assert markets == []
-            assert mock_request.call_count == 3
+        with pytest.raises(requests.HTTPError):
+            client.get_markets()
 
     @patch("requests.Session.request")
     @patch.object(KalshiClient, "_get_auth_headers", return_value={"KALSHI-ACCESS-KEY": "test"})
@@ -492,101 +480,82 @@ class TestKalshiClient:
 
 
 class TestKalshiClientRetryLogic:
-    """Test suite for retry logic and error handling."""
+    """Test suite for error handling.
+
+    Retries are handled by urllib3.Retry on the session adapter.
+    When mocking Session.request directly, the adapter layer is bypassed,
+    so these tests verify that errors are raised properly.
+    """
 
     @patch("requests.Session.request")
     @patch.object(KalshiClient, "_get_auth_headers", return_value={"KALSHI-ACCESS-KEY": "test"})
-    def test_all_retries_exhausted(self, mock_auth: MagicMock, mock_request: MagicMock) -> None:
-        """Test behavior when all retries are exhausted."""
+    def test_503_error_is_raised(self, mock_auth: MagicMock, mock_request: MagicMock) -> None:
+        """Test 503 server error is raised (retries handled by urllib3 adapter)."""
         mock_response = MagicMock()
         mock_response.status_code = 503
 
         http_error = requests.HTTPError()
         http_error.response = mock_response
         mock_response.raise_for_status.side_effect = http_error
-
-        # All requests fail
         mock_request.return_value = mock_response
 
-        with patch("src.shared.api.kalshi.time.sleep"):
-            client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key="test")
 
-            with pytest.raises(requests.HTTPError):
-                client.get_markets()
+        with pytest.raises(requests.HTTPError):
+            client.get_markets()
 
-            # Should have tried 3 times
-            assert mock_request.call_count == 3
+        assert mock_request.call_count == 1
 
     @patch("requests.Session.request")
     @patch.object(KalshiClient, "_get_auth_headers", return_value={"KALSHI-ACCESS-KEY": "test"})
-    def test_retry_on_500_error(self, mock_auth: MagicMock, mock_request: MagicMock) -> None:
-        """Test retry on 500 internal server error."""
+    def test_500_error_is_raised(self, mock_auth: MagicMock, mock_request: MagicMock) -> None:
+        """Test 500 internal server error is raised."""
         mock_response_500 = MagicMock()
         mock_response_500.status_code = 500
 
         http_error = requests.HTTPError()
         http_error.response = mock_response_500
         mock_response_500.raise_for_status.side_effect = http_error
+        mock_request.return_value = mock_response_500
 
-        mock_response_success = MagicMock()
-        mock_response_success.status_code = 200
-        mock_response_success.json.return_value = {"markets": []}
+        client = KalshiClient(api_key="test")
 
-        # First fails, second succeeds
-        mock_request.side_effect = [mock_response_500, mock_response_success]
-
-        with patch("src.shared.api.kalshi.time.sleep"):
-            client = KalshiClient(api_key="test")
-            markets = client.get_markets()
-
-            assert markets == []
-            assert mock_request.call_count == 2
+        with pytest.raises(requests.HTTPError):
+            client.get_markets()
 
     @patch("requests.Session.request")
     @patch.object(KalshiClient, "_get_auth_headers", return_value={"KALSHI-ACCESS-KEY": "test"})
-    def test_retry_on_502_error(self, mock_auth: MagicMock, mock_request: MagicMock) -> None:
-        """Test retry on 502 bad gateway error."""
+    def test_502_error_is_raised(self, mock_auth: MagicMock, mock_request: MagicMock) -> None:
+        """Test 502 bad gateway error is raised."""
         mock_response_502 = MagicMock()
         mock_response_502.status_code = 502
 
         http_error = requests.HTTPError()
         http_error.response = mock_response_502
         mock_response_502.raise_for_status.side_effect = http_error
+        mock_request.return_value = mock_response_502
 
-        mock_response_success = MagicMock()
-        mock_response_success.status_code = 200
-        mock_response_success.json.return_value = {"markets": []}
+        client = KalshiClient(api_key="test")
 
-        mock_request.side_effect = [mock_response_502, mock_response_success]
-
-        with patch("src.shared.api.kalshi.time.sleep"):
-            client = KalshiClient(api_key="test")
-            markets = client.get_markets()
-
-            assert markets == []
+        with pytest.raises(requests.HTTPError):
+            client.get_markets()
 
     @patch("requests.Session.request")
     @patch.object(KalshiClient, "_get_auth_headers", return_value={"KALSHI-ACCESS-KEY": "test"})
-    def test_retry_on_504_error(self, mock_auth: MagicMock, mock_request: MagicMock) -> None:
-        """Test retry on 504 gateway timeout error."""
+    def test_504_error_is_raised(self, mock_auth: MagicMock, mock_request: MagicMock) -> None:
+        """Test 504 gateway timeout error is raised."""
         mock_response_504 = MagicMock()
         mock_response_504.status_code = 504
 
         http_error = requests.HTTPError()
         http_error.response = mock_response_504
         mock_response_504.raise_for_status.side_effect = http_error
+        mock_request.return_value = mock_response_504
 
-        mock_response_success = MagicMock()
-        mock_response_success.status_code = 200
-        mock_response_success.json.return_value = {"markets": []}
+        client = KalshiClient(api_key="test")
 
-        mock_request.side_effect = [mock_response_504, mock_response_success]
-
-        with patch("src.shared.api.kalshi.time.sleep"):
-            client = KalshiClient(api_key="test")
-            markets = client.get_markets()
-
-            assert markets == []
+        with pytest.raises(requests.HTTPError):
+            client.get_markets()
 
     @patch("requests.Session.request")
     @patch.object(KalshiClient, "_get_auth_headers", return_value={"KALSHI-ACCESS-KEY": "test"})
@@ -614,28 +583,19 @@ class TestKalshiClientRetryLogic:
     def test_rate_limit_429_response(
         self, mock_auth: MagicMock, mock_request: MagicMock
     ) -> None:
-        """Test handling of 429 rate limit response."""
+        """Test 429 rate limit error is raised (retries handled by urllib3 adapter)."""
         mock_response_429 = MagicMock()
         mock_response_429.status_code = 429
 
         http_error = requests.HTTPError()
         http_error.response = mock_response_429
         mock_response_429.raise_for_status.side_effect = http_error
+        mock_request.return_value = mock_response_429
 
-        mock_response_success = MagicMock()
-        mock_response_success.status_code = 200
-        mock_response_success.json.return_value = {"markets": []}
+        client = KalshiClient(api_key="test")
 
-        # First call rate limited, second succeeds
-        mock_request.side_effect = [mock_response_429, mock_response_success]
-
-        with patch("src.shared.api.kalshi.time.sleep") as mock_sleep:
-            client = KalshiClient(api_key="test")
-            markets = client.get_markets()
-
-            assert markets == []
-            # Should have slept for backoff
-            mock_sleep.assert_called()
+        with pytest.raises(requests.HTTPError):
+            client.get_markets()
 
     @patch("requests.Session.request")
     @patch.object(KalshiClient, "_get_auth_headers", return_value={"KALSHI-ACCESS-KEY": "test"})
