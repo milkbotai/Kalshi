@@ -1,5 +1,8 @@
 # AGENTS — Operational Protocol
 
+> Canonical doctrine: [BinaryRogue HQ](https://github.com/milkbotai/BinaryRogue) — SOUL.md, PLAYBOOK.md, ROSTER.md
+> This file contains Kalshi-specific operational instructions.
+
 ## Boot Sequence
 
 On startup, load in this order:

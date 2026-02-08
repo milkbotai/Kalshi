@@ -1,4 +1,6 @@
 # SOUL — The Black Flag Doctrine
+<!-- Canonical source: https://github.com/milkbotai/BinaryRogue/blob/main/SOUL.md -->
+<!-- Auto-synced by BinaryRogue HQ workflow. Do not edit locally. -->
 
 > *"Every normal man must be tempted, at times, to spit on his hands, hoist the black flag, and begin slitting throats."*
 > — H.L. Mencken
