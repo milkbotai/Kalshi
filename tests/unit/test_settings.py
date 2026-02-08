@@ -13,8 +13,8 @@ class TestSettings:
         """Test that API credentials default to None (optional)."""
         settings = Settings()
 
-        assert settings.kalshi_api_key is None
-        assert settings.kalshi_api_secret is None
+        assert settings.kalshi_api_key_id is None
+        assert settings.kalshi_private_key_path is None
 
     def test_settings_has_default_database_url(self) -> None:
         """Test that database URL has a default."""
@@ -32,15 +32,15 @@ class TestSettings:
     def test_settings_with_valid_config(self) -> None:
         """Test settings creation with valid configuration."""
         settings = Settings(
-            kalshi_api_key="test_key",
-            kalshi_api_secret="test_secret",
+            kalshi_api_key_id="test_key_id",
+            kalshi_private_key_path="/path/to/key.pem",
             database_url="postgresql://localhost/test",
             environment="development",
             log_level="DEBUG",
         )
 
-        assert settings.kalshi_api_key == "test_key"
-        assert settings.kalshi_api_secret == "test_secret"
+        assert settings.kalshi_api_key_id == "test_key_id"
+        assert settings.kalshi_private_key_path == "/path/to/key.pem"
         assert settings.environment == "development"
         assert settings.log_level == "DEBUG"
         assert settings.enable_trading is False

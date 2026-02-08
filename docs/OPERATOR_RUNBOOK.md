@@ -499,8 +499,8 @@ print('Rollups complete')
 | Variable | Description | Required |
 |----------|-------------|----------|
 | `TRADING_MODE` | shadow/demo/live | Yes |
-| `KALSHI_API_KEY` | Kalshi API key | Yes |
-| `KALSHI_API_SECRET` | Kalshi API secret | Yes |
+| `KALSHI_API_KEY_ID` | Kalshi API key ID (RSA auth) | Yes |
+| `KALSHI_PRIVATE_KEY_PATH` | Path to RSA private key (.pem) | Yes |
 | `DATABASE_URL` | PostgreSQL connection | Yes |
 | `OPENROUTER_API_KEY` | LLM API key | No |
 | `MILKBOT_SLACK_WEBHOOK` | Alert webhook | No |

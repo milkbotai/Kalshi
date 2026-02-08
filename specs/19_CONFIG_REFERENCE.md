@@ -15,7 +15,7 @@ Each environment has:
 ## 2. Config structure (YAML example)
 ```yaml
 env: demo
-bankroll: 5000
+bankroll: 992.10  # Current live value; configure via BANKROLL in .env
 trade_delay_minutes: 60
 cities:
   NYC:

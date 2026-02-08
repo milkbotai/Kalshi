@@ -35,7 +35,7 @@ class TestKalshiCoverageGaps:
         mock_response.json.return_value = {"market": {"ticker": "", "event_ticker": "", "title": ""}}
         mock_request.return_value = mock_response
 
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
         market = client.get_market_typed("TEST")
 
         # Empty ticker is valid, returns Market with empty ticker
@@ -69,7 +69,7 @@ class TestKalshiCoverageGaps:
         }
         mock_request.return_value = mock_response
 
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
         orderbook = client.get_orderbook_typed("TEST")
 
         # Should have parsed valid level, skipped invalid ones
@@ -91,7 +91,7 @@ class TestKalshiCoverageGaps:
         mock_response.json.return_value = {"market": {}}
         mock_request.return_value = mock_response
 
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
         spread = client.calculate_spread("NONEXISTENT")
 
         assert spread is None
@@ -121,7 +121,7 @@ class TestKalshiCoverageGaps:
         }
         mock_request.return_value = mock_response
 
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
         spread = client.calculate_spread("TEST")
 
         assert spread == 5

@@ -35,8 +35,8 @@ These tests are marked with `@pytest.mark.integration` and `@pytest.mark.slow`.
 Kalshi integration tests require demo API credentials:
 
 ```bash
-export KALSHI_API_KEY="your_demo_key"
-export KALSHI_API_SECRET="your_demo_secret"
+export KALSHI_API_KEY_ID="your_api_key_id"
+export KALSHI_PRIVATE_KEY_PATH="/path/to/your/private_key.pem"
 ```
 
 Tests will be skipped if credentials are not configured.

@@ -59,19 +59,6 @@ class Settings(BaseSettings):
         default=None,
         description="Path to Kalshi RSA private key file (.pem)",
     )
-    # Legacy email/password (deprecated)
-    kalshi_api_key: str | None = Field(
-        default=None,
-        description="Kalshi API key (deprecated, use kalshi_api_key_id)",
-    )
-    kalshi_api_secret: str | None = Field(
-        default=None,
-        description="Kalshi API secret (deprecated)",
-    )
-    kalshi_base_url: str = Field(
-        default="https://api.kalshi.com/v1",
-        description="Kalshi API base URL",
-    )
     kalshi_api_url: str = Field(
         default="https://demo-api.kalshi.co/trade-api/v2",
         description="Kalshi API URL (demo or production)",

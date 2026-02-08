@@ -30,7 +30,7 @@ MilkBot doesn't predict the weather. It predicts the prediction.
 | **Infrastructure** | Ubuntu 24.04 VPS, Nginx reverse proxy, Cloudflare DNS/SSL |
 | **Backend** | Python 3.12, async trading loop, PostgreSQL persistence |
 | **Dashboard** | Streamlit with custom dark theme ("Binary Rogue" aesthetic) |
-| **AI Cluster** | OpenRouter API (Claude Sonnet 4 for analysis and explanation) |
+| **AI Cluster** | OpenRouter API (Claude Sonnet 4 for analysis) |
 | **Weather Data** | National Weather Service (NWS) API, real-time observations |
 | **Exchange** | Kalshi REST API v2 with RSA key authentication |
 

@@ -51,7 +51,7 @@ class TestTradingLoopFinalCoverage:
 
         settings = MagicMock()
         settings.trading_mode = TradingMode.DEMO
-        settings.kalshi_api_key = "test-key"
+        settings.kalshi_api_key_id = "test-key"
         settings.kalshi_api_url = "https://api.kalshi.co/trade-api/v2"  # Production URL
         mock_settings.return_value = settings
 
@@ -158,7 +158,7 @@ class TestKalshiFinalCoverage:
         # Make all requests fail with RequestException (not HTTPError)
         mock_request.side_effect = requests.RequestException("Network error")
 
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
 
         with patch.object(KalshiClient, "_get_auth_headers", return_value={"KALSHI-ACCESS-KEY": "test"}):
             # RequestException is re-raised directly, not wrapped in HTTPError
@@ -183,7 +183,7 @@ class TestKalshiFinalCoverage:
         }
         mock_request.return_value = mock_response
 
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
 
         with patch.object(KalshiClient, "_get_auth_headers", return_value={"KALSHI-ACCESS-KEY": "test"}):
             markets = client.get_markets_typed()
@@ -216,7 +216,7 @@ class TestKalshiFinalCoverage:
         }
         mock_request.return_value = mock_response
 
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
 
         with patch.object(KalshiClient, "_get_auth_headers", return_value={"KALSHI-ACCESS-KEY": "test"}):
             orderbook = client.get_orderbook_typed("TEST")

@@ -14,7 +14,7 @@ from src.shared.config.logging import get_logger
 
 logger = get_logger(__name__)
 
-# Default model - Claude Sonnet 4.5 via OpenRouter
+# Default model - Claude Sonnet 4 via OpenRouter
 DEFAULT_MODEL = "anthropic/claude-sonnet-4"
 
 # API configuration

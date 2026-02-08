@@ -77,7 +77,7 @@ cat /opt/milkbot/.env | grep -E "^(BANKROLL|MAX_|SPREAD_|LIQUIDITY_|MIN_EDGE)"
 
 | Parameter | Demo Value | Live Value | Verified |
 |-----------|------------|------------|----------|
-| `BANKROLL` | $5,000 | $_________ | [ ] |
+| `BANKROLL` | $992.10 | $_________ | [ ] |
 | `MAX_OPEN_RISK_PCT` | 10% | _________% | [ ] |
 | `MAX_DAILY_LOSS_PCT` | 5% | _________% | [ ] |
 | `MAX_WEEKLY_LOSS_PCT` | 12% | _________% | [ ] |

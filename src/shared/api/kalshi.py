@@ -41,9 +41,6 @@ class KalshiClient:
         private_key_path: str | None = None,
         private_key_pem: str | None = None,
         base_url: str = "https://demo-api.kalshi.co/trade-api/v2",
-        # Legacy parameters (deprecated)
-        api_key: str | None = None,
-        api_secret: str | None = None,
     ) -> None:
         """Initialize Kalshi API client with RSA key authentication.
 
@@ -52,10 +49,8 @@ class KalshiClient:
             private_key_path: Path to RSA private key file (.pem)
             private_key_pem: RSA private key as PEM string (alternative to path)
             base_url: API base URL (demo or production)
-            api_key: Deprecated - use api_key_id
-            api_secret: Deprecated - not used with RSA auth
         """
-        self.api_key_id = api_key_id or api_key
+        self.api_key_id = api_key_id
         self.base_url = base_url.rstrip("/")
         self._private_key: rsa.RSAPrivateKey | None = None
         self._last_request_time = 0.0

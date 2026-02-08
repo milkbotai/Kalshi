@@ -109,12 +109,12 @@ Default for development: `DEMO` or `SHADOW` only.
 - Liquidity ≥ configured minimum
 - Minimum edge (after costs) ≥ configured minimum
 
-### Risk policy (design-time defaults for $5,000 demo bankroll; live values in Settings)
-- Max open risk: **$500** (10%)
-- Max daily loss: **$250** (5%) → pause 24h
-- Max per trade risk: **$100** (2%)
-- Max city exposure: **$150** (3%)
-- Max cluster exposure: **$250** (5%)
+### Risk policy (percentages enforced by Settings; dollar amounts scale with bankroll)
+- Max open risk: **10%** of bankroll
+- Max daily loss: **5%** of bankroll → pause 24h
+- Max per trade risk: **2%** of bankroll
+- Max city exposure: **3%** of bankroll
+- Max cluster exposure: **5%** of bankroll
 
 ### Circuit breakers
 Pause trading when:

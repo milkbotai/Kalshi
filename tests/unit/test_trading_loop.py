@@ -282,7 +282,7 @@ class TestTradingLoop:
         """Test trading loop initializes in shadow mode."""
         settings = _make_settings_mock()
         settings.trading_mode = TradingMode.SHADOW
-        settings.kalshi_api_key = None
+        settings.kalshi_api_key_id =None
         settings.kalshi_private_key_path = None
         mock_settings.return_value = settings
 
@@ -336,7 +336,7 @@ class TestTradingLoop:
         """Test running cycle with market evaluation."""
         settings = _make_settings_mock()
         settings.trading_mode = TradingMode.DEMO
-        settings.kalshi_api_key = "test_key"
+        settings.kalshi_api_key_id ="test_key"
 
         settings.kalshi_api_url = "https://demo-api.kalshi.co"
         mock_settings.return_value = settings
@@ -514,7 +514,7 @@ class TestTradingLoop:
         """Test order submission in DEMO mode calls Kalshi API."""
         settings = _make_settings_mock()
         settings.trading_mode = TradingMode.DEMO
-        settings.kalshi_api_key = "test"
+        settings.kalshi_api_key_id ="test"
 
         mock_settings.return_value = settings
         mock_loader.get_city.return_value = mock_city_loader
@@ -661,7 +661,7 @@ class TestTradingLoopErrorHandling:
         """Test that order submission exceptions are caught and logged."""
         settings = _make_settings_mock()
         settings.trading_mode = TradingMode.DEMO
-        settings.kalshi_api_key = "test"
+        settings.kalshi_api_key_id ="test"
 
         mock_settings.return_value = settings
         mock_loader.get_city.return_value = mock_city_loader
@@ -728,7 +728,7 @@ class TestTradingLoopErrorHandling:
         """Test that strategy evaluation exceptions are caught."""
         settings = _make_settings_mock()
         settings.trading_mode = TradingMode.DEMO
-        settings.kalshi_api_key = "test"
+        settings.kalshi_api_key_id ="test"
 
         mock_settings.return_value = settings
         mock_loader.get_city.return_value = mock_city_loader
@@ -780,7 +780,7 @@ class TestTradingLoopErrorHandling:
         """Test handling of OMS update failures."""
         settings = _make_settings_mock()
         settings.trading_mode = TradingMode.DEMO
-        settings.kalshi_api_key = "test"
+        settings.kalshi_api_key_id ="test"
 
         mock_settings.return_value = settings
         mock_loader.get_city.return_value = mock_city_loader
@@ -1022,7 +1022,7 @@ class TestTradingLoopOrderSubmissionEdgeCases:
         """Test handling when Kalshi returns response without order_id."""
         settings = _make_settings_mock()
         settings.trading_mode = TradingMode.DEMO
-        settings.kalshi_api_key = "test"
+        settings.kalshi_api_key_id ="test"
 
         settings.kalshi_api_url = "https://demo-api.kalshi.co"
         mock_settings.return_value = settings
@@ -1601,7 +1601,7 @@ class TestTradingLoopEdgeCases:
         """Test _submit_order defaults to 'yes' side when signal.side is None."""
         settings = _make_settings_mock()
         settings.trading_mode = TradingMode.DEMO
-        settings.kalshi_api_key = "test"
+        settings.kalshi_api_key_id ="test"
 
         settings.kalshi_api_url = "https://demo-api.kalshi.co"
         mock_settings.return_value = settings
@@ -1668,7 +1668,7 @@ class TestOrderSubmissionExceptions:
 
         settings = _make_settings_mock()
         settings.trading_mode = TradingMode.DEMO
-        settings.kalshi_api_key = "test"
+        settings.kalshi_api_key_id ="test"
 
         settings.kalshi_api_url = "https://demo-api.kalshi.co"
         mock_settings.return_value = settings
@@ -1734,7 +1734,7 @@ class TestOrderSubmissionExceptions:
 
         settings = _make_settings_mock()
         settings.trading_mode = TradingMode.DEMO
-        settings.kalshi_api_key = "test"
+        settings.kalshi_api_key_id ="test"
 
         settings.kalshi_api_url = "https://demo-api.kalshi.co"
         mock_settings.return_value = settings
@@ -1797,7 +1797,7 @@ class TestOrderSubmissionExceptions:
         """Test handling of malformed order response."""
         settings = _make_settings_mock()
         settings.trading_mode = TradingMode.DEMO
-        settings.kalshi_api_key = "test"
+        settings.kalshi_api_key_id ="test"
 
         settings.kalshi_api_url = "https://demo-api.kalshi.co"
         mock_settings.return_value = settings
@@ -1863,7 +1863,7 @@ class TestOrderSubmissionExceptions:
 
         settings = _make_settings_mock()
         settings.trading_mode = TradingMode.DEMO
-        settings.kalshi_api_key = "test"
+        settings.kalshi_api_key_id ="test"
 
         settings.kalshi_api_url = "https://demo-api.kalshi.co"
         mock_settings.return_value = settings
@@ -1963,7 +1963,7 @@ class TestTradingModeEnforcement:
         """Test DEMO mode uses Kalshi API."""
         settings = _make_settings_mock()
         settings.trading_mode = TradingMode.DEMO
-        settings.kalshi_api_key = "demo_key"
+        settings.kalshi_api_key_id ="demo_key"
 
         settings.kalshi_api_url = "https://demo-api.kalshi.co"
         mock_settings.return_value = settings
@@ -2159,7 +2159,7 @@ class TestTradingLoopValidation:
         """Test DEMO mode with production URL logs warning."""
         settings = _make_settings_mock()
         settings.trading_mode = TradingMode.DEMO
-        settings.kalshi_api_key = "test_key"
+        settings.kalshi_api_key_id ="test_key"
 
         settings.kalshi_api_url = "https://api.kalshi.com"  # Production URL
         mock_settings.return_value = settings

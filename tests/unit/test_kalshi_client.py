@@ -14,7 +14,7 @@ class TestKalshiClient:
     def test_client_initialization(self) -> None:
         """Test KalshiClient initializes with credentials."""
         client = KalshiClient(
-            api_key="test_key",
+            api_key_id="test_key",
             base_url="https://demo-api.kalshi.co/trade-api/v2",
         )
 
@@ -26,7 +26,7 @@ class TestKalshiClient:
     @patch("src.shared.api.kalshi.time.time")
     def test_rate_limiting(self, mock_time: MagicMock, mock_sleep: MagicMock) -> None:
         """Test rate limiting enforces minimum interval between requests."""
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
 
         # Simulate rapid requests (10 req/sec = 0.1s interval)
         mock_time.side_effect = [1.0, 1.0, 1.05, 1.05]
@@ -40,7 +40,7 @@ class TestKalshiClient:
 
     def test_get_auth_headers_without_key(self) -> None:
         """Test _get_auth_headers raises ValueError when no key is set."""
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
         # No private key loaded
 
         with pytest.raises(ValueError, match="API key ID and private key required"):
@@ -56,7 +56,7 @@ class TestKalshiClient:
             key_size=2048,
         )
 
-        client = KalshiClient(api_key="test_key")
+        client = KalshiClient(api_key_id="test_key")
         client._private_key = private_key
 
         headers = client._get_auth_headers("GET", "/markets")
@@ -88,7 +88,7 @@ class TestKalshiClient:
         }
         mock_request.return_value = mock_response
 
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
         markets = client.get_markets(series_ticker="HIGHNYC")
 
         assert len(markets) == 2
@@ -115,7 +115,7 @@ class TestKalshiClient:
         }
         mock_request.return_value = mock_response
 
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
         market = client.get_market("HIGHNYC-25JAN26")
 
         assert market["ticker"] == "HIGHNYC-25JAN26"
@@ -135,7 +135,7 @@ class TestKalshiClient:
         }
         mock_request.return_value = mock_response
 
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
         orderbook = client.get_orderbook("HIGHNYC-25JAN26")
 
         assert "yes" in orderbook
@@ -161,7 +161,7 @@ class TestKalshiClient:
         }
         mock_request.return_value = mock_response
 
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
         order = client.create_order(
             ticker="HIGHNYC-25JAN26",
             side="yes",
@@ -193,7 +193,7 @@ class TestKalshiClient:
         mock_response.json.return_value = {"order_id": "order_123", "status": "canceled"}
         mock_request.return_value = mock_response
 
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
         result = client.cancel_order("order_123")
 
         assert result["order_id"] == "order_123"
@@ -221,7 +221,7 @@ class TestKalshiClient:
         }
         mock_request.return_value = mock_response
 
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
         orders = client.get_orders(ticker="HIGHNYC-25JAN26", status="resting")
 
         assert len(orders) == 1
@@ -250,7 +250,7 @@ class TestKalshiClient:
         }
         mock_request.return_value = mock_response
 
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
         positions = client.get_positions()
 
         assert len(positions) == 1
@@ -276,7 +276,7 @@ class TestKalshiClient:
         }
         mock_request.return_value = mock_response
 
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
         positions = client.get_positions()
 
         assert len(positions) == 1
@@ -301,7 +301,7 @@ class TestKalshiClient:
         }
         mock_request.return_value = mock_response
 
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
         fills = client.get_fills(ticker="HIGHNYC-25JAN26")
 
         assert len(fills) == 1
@@ -318,7 +318,7 @@ class TestKalshiClient:
         mock_response.json.return_value = {"balance": 5000}
         mock_request.return_value = mock_response
 
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
         balance = client.get_balance()
 
         assert balance["balance"] == 5000
@@ -335,7 +335,7 @@ class TestKalshiClient:
         mock_response_fail.raise_for_status.side_effect = http_error
         mock_request.return_value = mock_response_fail
 
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
 
         with pytest.raises(requests.HTTPError):
             client.get_markets()
@@ -353,7 +353,7 @@ class TestKalshiClient:
 
         mock_request.return_value = mock_response_401
 
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
 
         with pytest.raises(requests.HTTPError):
             client.get_markets()
@@ -369,7 +369,7 @@ class TestKalshiClient:
         mock_response.json.return_value = {"market": {}}
         mock_request.return_value = mock_response
 
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
         market = client.get_market("INVALID-TICKER")
 
         assert market == {}
@@ -387,7 +387,7 @@ class TestKalshiClient:
 
         mock_request.return_value = mock_response
 
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
 
         with pytest.raises(requests.HTTPError):
             client.get_market("INVALID-TICKER")
@@ -405,7 +405,7 @@ class TestKalshiClient:
 
         mock_request.return_value = mock_response
 
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
 
         with pytest.raises(requests.HTTPError):
             client.create_order(
@@ -429,7 +429,7 @@ class TestKalshiClient:
 
         mock_request.return_value = mock_response
 
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
 
         with pytest.raises(requests.HTTPError):
             client.get_balance()
@@ -453,7 +453,7 @@ class TestKalshiClient:
         }
         mock_request.return_value = mock_response
 
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
         fills = client.get_fills(
             ticker="HIGHNYC-25JAN26",
             min_ts=1706184000000,
@@ -473,7 +473,7 @@ class TestKalshiClient:
         """Test request timeout handling."""
         mock_request.side_effect = requests.Timeout("Request timed out")
 
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
 
         with pytest.raises(requests.Timeout):
             client.get_markets()
@@ -499,7 +499,7 @@ class TestKalshiClientRetryLogic:
         mock_response.raise_for_status.side_effect = http_error
         mock_request.return_value = mock_response
 
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
 
         with pytest.raises(requests.HTTPError):
             client.get_markets()
@@ -518,7 +518,7 @@ class TestKalshiClientRetryLogic:
         mock_response_500.raise_for_status.side_effect = http_error
         mock_request.return_value = mock_response_500
 
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
 
         with pytest.raises(requests.HTTPError):
             client.get_markets()
@@ -535,7 +535,7 @@ class TestKalshiClientRetryLogic:
         mock_response_502.raise_for_status.side_effect = http_error
         mock_request.return_value = mock_response_502
 
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
 
         with pytest.raises(requests.HTTPError):
             client.get_markets()
@@ -552,7 +552,7 @@ class TestKalshiClientRetryLogic:
         mock_response_504.raise_for_status.side_effect = http_error
         mock_request.return_value = mock_response_504
 
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
 
         with pytest.raises(requests.HTTPError):
             client.get_markets()
@@ -573,7 +573,7 @@ class TestKalshiClientRetryLogic:
         # All requests return 401
         mock_request.return_value = mock_response_401
 
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
 
         with pytest.raises(requests.HTTPError):
             client.get_markets()
@@ -592,7 +592,7 @@ class TestKalshiClientRetryLogic:
         mock_response_429.raise_for_status.side_effect = http_error
         mock_request.return_value = mock_response_429
 
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
 
         with pytest.raises(requests.HTTPError):
             client.get_markets()
@@ -609,7 +609,7 @@ class TestKalshiClientRetryLogic:
 
         mock_request.return_value = mock_response
 
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
         markets = client.get_markets()
 
         assert markets == []
@@ -626,7 +626,7 @@ class TestKalshiClientRetryLogic:
 
         mock_request.return_value = mock_response
 
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
         markets = client.get_markets()
 
         # Should handle None gracefully
@@ -644,7 +644,7 @@ class TestKalshiClientRetryLogic:
 
         mock_request.return_value = mock_response
 
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
         positions = client.get_positions()
 
         assert positions == []
@@ -661,7 +661,7 @@ class TestKalshiClientRetryLogic:
 
         mock_request.return_value = mock_response
 
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
         fills = client.get_fills()
 
         assert fills == []
@@ -681,7 +681,7 @@ class TestKalshiClientRetryLogic:
 
         mock_request.return_value = mock_response
 
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
 
         with pytest.raises(requests.HTTPError):
             client.cancel_order("nonexistent_order")
@@ -698,7 +698,7 @@ class TestKalshiClientRetryLogic:
 
         mock_request.return_value = mock_response
 
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
         orders = client.get_orders()
 
         assert orders == []
@@ -718,7 +718,7 @@ class TestKalshiClientRetryLogic:
 
         mock_request.return_value = mock_response
 
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
 
         with pytest.raises(requests.HTTPError):
             client.get_markets()
@@ -738,7 +738,7 @@ class TestKalshiClientRetryLogic:
 
         mock_request.return_value = mock_response
 
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
         balance = client.get_balance()
 
         assert balance == {}
@@ -755,7 +755,7 @@ class TestKalshiClientRetryLogic:
 
         mock_request.return_value = mock_response
 
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
         order = client.create_order(
             ticker="TEST",
             side="no",
@@ -780,7 +780,7 @@ class TestKalshiClientRetryLogic:
 
         mock_request.return_value = mock_response
 
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
         fills = client.get_fills()
 
         assert len(fills) == 1
@@ -790,7 +790,7 @@ class TestKalshiClientRetryLogic:
 
     def test_get_auth_headers_raises_without_private_key(self) -> None:
         """Test _get_auth_headers raises ValueError without private key."""
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
 
         with pytest.raises(ValueError, match="API key ID and private key required"):
             client._get_auth_headers("GET", "/markets")
@@ -810,7 +810,7 @@ class TestKalshiClientRetryLogic:
         """Test handling of generic request exception."""
         mock_request.side_effect = requests.RequestException("Network error")
 
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
 
         with pytest.raises(requests.RequestException):
             client.get_markets()
@@ -841,7 +841,7 @@ class TestKalshiClientTyped:
         }
         mock_request.return_value = mock_response
 
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
         markets = client.get_markets_typed(series_ticker="HIGHNYC")
 
         assert len(markets) == 1
@@ -870,7 +870,7 @@ class TestKalshiClientTyped:
         }
         mock_request.return_value = mock_response
 
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
         market = client.get_market_typed("HIGHNYC-25JAN26")
 
         assert market is not None
@@ -889,7 +889,7 @@ class TestKalshiClientTyped:
         mock_response.json.return_value = {"market": {}}
         mock_request.return_value = mock_response
 
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
         market = client.get_market_typed("INVALID")
 
         assert market is None
@@ -913,7 +913,7 @@ class TestKalshiClientTyped:
         }
         mock_request.return_value = mock_response
 
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
         orderbook = client.get_orderbook_typed("HIGHNYC-25JAN26")
 
         assert len(orderbook.yes) == 2
@@ -933,7 +933,7 @@ class TestKalshiClientTyped:
         mock_response.json.return_value = {"orderbook": {}}
         mock_request.return_value = mock_response
 
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
         orderbook = client.get_orderbook_typed("CLOSED-MARKET")
 
         assert len(orderbook.yes) == 0
@@ -959,7 +959,7 @@ class TestKalshiClientTyped:
         }
         mock_request.return_value = mock_response
 
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
         spread = client.calculate_spread("HIGHNYC-25JAN26")
 
         assert spread == 5
@@ -982,7 +982,7 @@ class TestKalshiClientTyped:
         }
         mock_request.return_value = mock_response
 
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
         spread = client.calculate_spread("TIGHT-MARKET")
 
         # Spread of 2 cents is below the 3 cent threshold
@@ -1009,7 +1009,7 @@ class TestKalshiClientTyped:
         }
         mock_request.return_value = mock_response
 
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
         spread = client.calculate_spread("NO-PRICING")
 
         assert spread is None
@@ -1025,7 +1025,7 @@ class TestKalshiClientTyped:
         mock_response.json.return_value = {"market": {}}
         mock_request.return_value = mock_response
 
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
         spread = client.calculate_spread("NONEXISTENT")
 
         assert spread is None
@@ -1047,7 +1047,7 @@ class TestKalshiClientTyped:
         }
         mock_request.return_value = mock_response
 
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
         markets = client.get_markets_typed()
 
         # Should return valid markets, skip invalid ones
@@ -1065,7 +1065,7 @@ class TestKalshiClientTyped:
         mock_response.json.return_value = {"market": {}}
         mock_request.return_value = mock_response
 
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
         market = client.get_market_typed("TEST")
 
         # Should return None for empty market
@@ -1090,7 +1090,7 @@ class TestKalshiClientTyped:
         }
         mock_request.return_value = mock_response
 
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
         orderbook = client.get_orderbook_typed("TEST")
 
         # Should have parsed valid levels
@@ -1108,7 +1108,7 @@ class TestKalshiClientTyped:
         mock_response.json.return_value = {"markets": []}
         mock_request.return_value = mock_response
 
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
         client.get_markets(event_ticker="HIGHNYC-25JAN26")
 
         call_kwargs = mock_request.call_args[1]
@@ -1130,7 +1130,7 @@ class TestKalshiClientTyped:
         # All requests return 401
         mock_request.return_value = mock_response_401
 
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
 
         with pytest.raises(requests.HTTPError):
             client.get_markets()
@@ -1143,7 +1143,7 @@ class TestKalshiClientTyped:
         """Test create_order with network timeout on all retry attempts."""
         mock_request.side_effect = requests.Timeout("Connection timed out")
 
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
 
         with pytest.raises(requests.Timeout):
             client.create_order(
@@ -1174,7 +1174,7 @@ class TestKalshiClientTyped:
         }
         mock_request.return_value = mock_response
 
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
         fills = client.get_fills()
 
         # Should return fills even with malformed timestamp
@@ -1195,7 +1195,7 @@ class TestKalshiClientTyped:
         }
         mock_request.return_value = mock_response
 
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
         fills = client.get_fills()
 
         assert fills == []
@@ -1219,7 +1219,7 @@ class TestKalshiClientTyped:
         }
         mock_request.return_value = mock_response
 
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
         positions = client.get_positions()
 
         assert len(positions) == 1
@@ -1232,7 +1232,7 @@ class TestKalshiClientTyped:
         """Test connection error is raised without retry."""
         mock_request.side_effect = requests.ConnectionError("Connection refused")
 
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
 
         with pytest.raises(requests.ConnectionError):
             client.get_markets()

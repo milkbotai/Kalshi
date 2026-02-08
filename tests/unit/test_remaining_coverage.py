@@ -125,7 +125,7 @@ class TestKalshiLines568_570:
         }
         mock_request.return_value = mock_response
 
-        client = KalshiClient(api_key="test")
+        client = KalshiClient(api_key_id="test")
 
         with patch.object(KalshiClient, "_get_auth_headers", return_value={"KALSHI-ACCESS-KEY": "test"}):
             # Lines 568-570: exception handling returns None

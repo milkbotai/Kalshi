@@ -72,7 +72,7 @@ class TestAPIFailures:
 
         client = NWSClient()
 
-        with patch("httpx.Client.get") as mock_get:
+        with patch("requests.Session.get") as mock_get:
             mock_response = MagicMock()
             mock_response.status_code = 500
             mock_response.text = "Internal Server Error"
@@ -93,7 +93,7 @@ class TestAPIFailures:
 
         client = NWSClient()
 
-        with patch("httpx.Client.get") as mock_get:
+        with patch("requests.Session.get") as mock_get:
             mock_response = MagicMock()
             mock_response.status_code = 200
             mock_response.json.side_effect = ValueError("Invalid JSON")
