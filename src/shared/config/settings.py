@@ -119,14 +119,14 @@ class Settings(BaseSettings):
 
     # Trading parameters
     bankroll: float = Field(
-        default=1500.0,
+        default=992.10,
         ge=0,
         description="Starting bankroll in dollars",
     )
     max_position_size: int = Field(
-        default=300,
+        default=200,
         ge=1,
-        description="Maximum contracts per position (scaled for $1500 bankroll)",
+        description="Maximum contracts per position",
     )
     min_edge_bps: int = Field(
         default=50,
@@ -150,6 +150,23 @@ class Settings(BaseSettings):
         ge=0,
         le=1,
         description="Maximum daily loss as percentage of bankroll",
+    )
+
+    # Execution gates
+    spread_max_cents: int = Field(
+        default=4,
+        ge=1,
+        description="Maximum acceptable spread in cents",
+    )
+    min_edge_after_costs: float = Field(
+        default=0.03,
+        ge=0,
+        description="Minimum edge after costs as fraction",
+    )
+    liquidity_min: int = Field(
+        default=500,
+        ge=0,
+        description="Minimum market liquidity (volume + open interest)",
     )
 
     # Feature flags

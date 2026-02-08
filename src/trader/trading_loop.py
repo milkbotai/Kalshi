@@ -150,10 +150,10 @@ class TradingLoop:
             ValueError: If LIVE mode without proper configuration
         """
         if self.trading_mode == TradingMode.LIVE:
-            # LIVE mode requires API credentials
-            if not settings.kalshi_api_key or not settings.kalshi_api_secret:
+            # LIVE mode requires RSA key credentials
+            if not settings.kalshi_api_key_id or not settings.kalshi_private_key_path:
                 raise ValueError(
-                    "LIVE mode requires KALSHI_API_KEY and KALSHI_API_SECRET"
+                    "LIVE mode requires KALSHI_API_KEY_ID and KALSHI_PRIVATE_KEY_PATH"
                 )
 
             # LIVE mode should use production URL
@@ -210,13 +210,13 @@ class TradingLoop:
     def run_cycle(
         self,
         city_code: str,
-        quantity: int = 30,
+        quantity: int = 15,
     ) -> TradingCycleResult:
         """Run a single trading cycle for one city.
 
         Args:
             city_code: 3-letter city code
-            quantity: Default trade quantity (scaled for $1500 bankroll)
+            quantity: Default trade quantity
 
         Returns:
             TradingCycleResult with cycle statistics
@@ -857,13 +857,13 @@ class MultiCityOrchestrator:
 
     def run_all_cities(
         self,
-        quantity: int = 30,
+        quantity: int = 15,
         prefetch_weather: bool = True,
     ) -> MultiCityRunResult:
         """Run trading cycle for all configured cities.
 
         Args:
-            quantity: Default trade quantity per signal (scaled for $1500 bankroll)
+            quantity: Default trade quantity per signal
             prefetch_weather: Whether to prefetch weather in parallel first
 
         Returns:
@@ -1015,7 +1015,7 @@ class MultiCityOrchestrator:
             return False
 
         # Check total exposure limit (should not exceed bankroll)
-        max_total_exposure = 1500.0
+        max_total_exposure = get_settings().bankroll
         if total_exposure > max_total_exposure:
             logger.warning(
                 "aggregate_risk_exposure_exceeded",
@@ -1091,6 +1091,11 @@ if __name__ == "__main__":
         logger.error("orchestrator_init_failed", error=str(e))
         sys.exit(1)
     
+    # Confirm LIVE mode if configured
+    if settings.trading_mode == TradingMode.LIVE:
+        orchestrator.trading_loop.confirm_live_mode()
+        logger.info("live_mode_confirmed_for_trading")
+
     # Run continuous trading loop
     while True:
         try:

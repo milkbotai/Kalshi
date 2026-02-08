@@ -1,1 +1,101 @@
-[['SSH_USER]\n\nset -euo pipefail\n\nVPS_IP="${1:-}"\nSSH_USER="${2:-$(whoami)}"\nPROJECT_DIR="/Users/milkbot/Projects/Milkbot/Kalshi"\nDEPLOY_DIR="/opt/milkbot"\n\nif [[ -z "$VPS_IP'], ['SSH_USER]"\n    echo "Example: $0 192.168.1.100 ubuntu"\n    exit 1\nfi\n\necho "🚀 Starting Milkbot deployment to $SSH_USER@$VPS_IP"\n\n# 1. Create deployment package\necho "📦 Preparing deployment package..."\ncd "$PROJECT_DIR"\nTEMP_PACKAGE=$(mktemp -d)/milkbot-deploy.tar.gz\n\ntar --exclude=\'.git\' \n    --exclude=\'*.pyc\' \n    --exclude=\'__pycache__\' \n    --exclude=\'.pytest_cache\' \n    --exclude=\'.mypy_cache\' \n    --exclude=\'.coverage\' \n    --exclude=\'htmlcov\' \n    --exclude=\'*.log\' \n    -czf "$TEMP_PACKAGE" .\n\n# 2. Transfer to VPS\necho "📤 Transferring files..."\nscp "$TEMP_PACKAGE" "$SSH_USER@$VPS_IP:/tmp/"\n\n# 3. Deploy on VPS\necho "⚙️  Deploying on VPS..."\nssh "$SSH_USER@$VPS_IP" "\n    set -e\n    echo \'🔧 Setting up deployment...\'\n    sudo mkdir -p $DEPLOY_DIR\n    sudo tar -xzf /tmp/$(basename $TEMP_PACKAGE) -C $DEPLOY_DIR --strip-components=1\n    sudo chown -R milkbot:milkbot $DEPLOY_DIR\n    sudo rm /tmp/$(basename $TEMP_PACKAGE)\n    \n    echo \'🐍 Setting up Python environment...\'\n    cd $DEPLOY_DIR\n    sudo -u milkbot python3.11 -m venv venv\n    sudo -u milkbot venv/bin/pip install --upgrade pip\n    sudo -u milkbot venv/bin/pip install -r requirements.txt\n    \n    echo \'📋 Setting up systemd services...\'\n    sudo cp deployment/systemd/*.service /etc/systemd/system/\n    sudo cp deployment/systemd/*.timer /etc/systemd/system/\n    sudo systemctl daemon-reload\n    \n    echo \'⚡ Deployment complete!\'\n    echo \'Next steps:\'\n    echo \'1. Update /opt/milkbot/.env with your production values\'\n    echo \'2. sudo systemctl enable milkbot-*\'\n    echo \'3. sudo systemctl start milkbot-*\'\n"\n\necho "🎉 Deployment finished!"\necho "✅ Files transferred to $DEPLOY_DIR on your VPS"\necho "📋 Next steps:"\necho "   1. SSH into your VPS"\necho "   2. Update /opt/milkbot/.env with production values"\necho "   3. Enable and start services:"\necho "      sudo systemctl enable milkbot-*"\necho "      sudo systemctl start milkbot-*']]
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+VPS_IP="${1:-}"
+SSH_USER="${2:-$(whoami)}"
+# Auto-detect project directory from script location
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+DEPLOY_DIR="/opt/milkbot"
+
+if [[ -z "$VPS_IP" ]]; then
+    echo "Usage: $0 <VPS_IP> [SSH_USER]"
+    echo "Example: $0 192.168.1.100 ubuntu"
+    exit 1
+fi
+
+echo "Starting Milkbot deployment to $SSH_USER@$VPS_IP"
+
+# 1. Create deployment package
+echo "Preparing deployment package..."
+cd "$PROJECT_DIR"
+TEMP_PACKAGE=$(mktemp -d)/milkbot-deploy.tar.gz
+
+tar --exclude='.git' \
+    --exclude='.env' \
+    --exclude='*.pem' \
+    --exclude='*.key' \
+    --exclude='*.pyc' \
+    --exclude='__pycache__' \
+    --exclude='.pytest_cache' \
+    --exclude='.mypy_cache' \
+    --exclude='.coverage' \
+    --exclude='htmlcov' \
+    --exclude='*.log' \
+    --exclude='.venv' \
+    -czf "$TEMP_PACKAGE" .
+
+# 2. Transfer to VPS
+echo "Transferring files..."
+scp "$TEMP_PACKAGE" "$SSH_USER@$VPS_IP:/tmp/"
+
+# 3. Deploy on VPS
+echo "Deploying on VPS..."
+ssh "$SSH_USER@$VPS_IP" "
+    set -e
+    echo 'Setting up deployment...'
+    sudo mkdir -p $DEPLOY_DIR
+    sudo tar -xzf /tmp/$(basename $TEMP_PACKAGE) -C $DEPLOY_DIR --strip-components=1
+    sudo chown -R milkbot:milkbot $DEPLOY_DIR
+    sudo rm /tmp/$(basename $TEMP_PACKAGE)
+
+    echo 'Setting up Python environment...'
+    cd $DEPLOY_DIR
+    sudo -u milkbot python3.11 -m venv venv
+    sudo -u milkbot venv/bin/pip install --upgrade pip
+    sudo -u milkbot venv/bin/pip install -r requirements.txt
+
+    echo 'Setting up systemd services...'
+    sudo cp deployment/systemd/*.service /etc/systemd/system/
+    sudo cp deployment/systemd/*.timer /etc/systemd/system/
+    sudo systemctl daemon-reload
+
+    echo 'Setting up credentials...'
+    sudo cp $DEPLOY_DIR/.env.example $DEPLOY_DIR/.env
+    sudo chmod 600 $DEPLOY_DIR/.env
+    sudo chown milkbot:milkbot $DEPLOY_DIR/.env
+
+    # Create placeholder for private key
+    if [ ! -f $DEPLOY_DIR/kalshi_private_key.pem ]; then
+        sudo touch $DEPLOY_DIR/kalshi_private_key.pem
+        sudo chmod 600 $DEPLOY_DIR/kalshi_private_key.pem
+        sudo chown milkbot:milkbot $DEPLOY_DIR/kalshi_private_key.pem
+    fi
+
+    echo ''
+    echo '========================================='
+    echo ' Deployment complete!'
+    echo '========================================='
+    echo ''
+    echo 'Run these commands to finish setup:'
+    echo ''
+    echo '1. Set your Kalshi API key:'
+    echo '   sudo sed -i \"s/^KALSHI_API_KEY_ID=.*/KALSHI_API_KEY_ID=YOUR_KEY_ID_HERE/\" /opt/milkbot/.env'
+    echo '   sudo sed -i \"s|^KALSHI_PRIVATE_KEY_PATH=.*|KALSHI_PRIVATE_KEY_PATH=/opt/milkbot/kalshi_private_key.pem|\" /opt/milkbot/.env'
+    echo ''
+    echo '2. Paste your private key:'
+    echo '   sudo nano /opt/milkbot/kalshi_private_key.pem'
+    echo ''
+    echo '3. Start services:'
+    echo '   sudo systemctl enable milkbot-trader.timer milkbot-dashboard milkbot-analytics'
+    echo '   sudo systemctl start milkbot-trader.timer milkbot-dashboard milkbot-analytics'
+"
+
+echo "Deployment finished!"
+echo "Files transferred to $DEPLOY_DIR on your VPS"
+echo ""
+echo "SSH in and finish setup:"
+echo "   ssh $SSH_USER@$VPS_IP"
+echo ""
+echo "Then paste your API key and private key (see instructions above)"

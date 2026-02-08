@@ -6,6 +6,7 @@ spread, liquidity, and edge requirements.
 
 from src.shared.api.response_models import Market
 from src.shared.config.logging import get_logger
+from src.shared.config.settings import get_settings
 from src.trader.strategy import Signal
 
 logger = get_logger(__name__)
@@ -135,19 +136,22 @@ def check_all_gates(
     signal: Signal,
     market: Market,
     quantity: int,
-    max_spread_cents: int = 8,
-    min_liquidity_multiple: float = 1.0,
-    min_edge_cents: float = 0.1,
+    max_spread_cents: int | None = None,
+    min_liquidity_multiple: float | None = None,
+    min_edge_cents: float | None = None,
 ) -> tuple[bool, list[str]]:
     """Check all execution gates.
+
+    Gate defaults are loaded from settings (spread_max_cents, liquidity_min,
+    min_edge_after_costs) unless overridden by explicit arguments.
 
     Args:
         signal: Trading signal
         market: Market to trade
         quantity: Desired trade quantity
-        max_spread_cents: Maximum acceptable spread
-        min_liquidity_multiple: Minimum liquidity multiple
-        min_edge_cents: Minimum edge required
+        max_spread_cents: Maximum acceptable spread (default from settings)
+        min_liquidity_multiple: Minimum liquidity multiple (default 3.0)
+        min_edge_cents: Minimum edge required in cents (default from settings)
 
     Returns:
         Tuple of (all_passed, failed_reasons)
@@ -157,6 +161,13 @@ def check_all_gates(
         >>> if passed:
         ...     # Execute trade
     """
+    settings = get_settings()
+    if max_spread_cents is None:
+        max_spread_cents = settings.spread_max_cents
+    if min_liquidity_multiple is None:
+        min_liquidity_multiple = 3.0
+    if min_edge_cents is None:
+        min_edge_cents = settings.min_edge_after_costs * 100  # Convert fraction to cents
     failed_reasons = []
 
     if not check_spread(market, max_spread_cents):

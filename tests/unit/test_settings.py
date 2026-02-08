@@ -52,7 +52,7 @@ class TestSettings:
         assert settings.environment == "development"
         assert settings.log_level == "INFO"
         assert settings.log_format == "json"
-        assert settings.max_position_size == 1000
+        assert settings.max_position_size == 200
         assert settings.min_edge_bps == 50
         assert settings.enable_trading is False
         assert settings.enable_analytics is True

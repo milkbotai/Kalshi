@@ -249,8 +249,8 @@ class TestCheckAllGates:
             title="Test",
             yes_bid=45,
             yes_ask=48,
-            volume=100,
-            open_interest=200,  # Total 300, need 500
+            volume=50,
+            open_interest=100,  # Total 150, need 300 (3.0x * 100)
             status="open",
         )
 

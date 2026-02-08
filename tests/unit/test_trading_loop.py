@@ -1283,8 +1283,8 @@ class TestMultiCityOrchestratorErrorHandling:
         """Test _check_aggregate_risk allows low exposure."""
         # Mock low exposure
         small_orders = [
-            {"quantity": 100, "limit_price": 50}  # $50 each
-            for _ in range(10)  # Total $500 exposure
+            {"quantity": 50, "limit_price": 50}  # $25 each
+            for _ in range(10)  # Total $500 exposure (under $992.10 bankroll)
         ]
 
         mock_trading_loop.oms.get_orders_by_status.side_effect = lambda status: (
@@ -2079,8 +2079,8 @@ class TestTradingModeEnforcement:
         """Test LIVE mode raises error without credentials."""
         settings = MagicMock()
         settings.trading_mode = TradingMode.LIVE
-        settings.kalshi_api_key = None  # Missing
-        settings.kalshi_api_secret = None  # Missing
+        settings.kalshi_api_key_id = None  # Missing
+        settings.kalshi_private_key_path = None  # Missing
         settings.kalshi_api_url = "https://api.kalshi.com"
         mock_settings.return_value = settings
 
