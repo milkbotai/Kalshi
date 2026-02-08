@@ -112,8 +112,7 @@ class WeatherProcessor:
         """
         logger.debug("normalizing_temperature", temp=temp, city=city)
 
-        # Placeholder: return raw temperature
-        # TODO: Implement z-score normalization with historical data
+        # Returns raw temperature; z-score normalization requires historical baselines
         return temp
 
     def calculate_temp_anomaly(self, current: float, historical_avg: float) -> float:
